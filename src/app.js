@@ -440,9 +440,9 @@ function viewSettings(){
 function viewImport(){
   return header() + `<div class="section-h"><div><span class="eyebrow">One-time setup</span><h2>Import my records</h2></div></div>
   <div class="card" style="padding:16px;display:grid;gap:14px">
-    <p style="margin:0">Choose the two files Claude sent you: <b>graytrees-import.json</b> (records) and <b>graytrees-photos.zip</b> (photos). Photos are uploaded to your Google Drive, so do this on Wi-Fi; it takes a few minutes.</p>
+    <p style="margin:0">Choose the two files Claude sent you: <b>graytrees-import.json</b> (records) and the photo files <b>graytrees-photos-1.zip</b> and <b>graytrees-photos-2.zip</b> (select both together). Photos are uploaded to your Google Drive, so do this on Wi-Fi; it takes a few minutes.</p>
     <label class="field"><span class="eyebrow">Records file (.json)</span><input type="file" id="impJson" accept=".json,application/json"></label>
-    <label class="field"><span class="eyebrow">Photos (.zip)</span><input type="file" id="impZip" accept=".zip,application/zip"></label>
+    <label class="field"><span class="eyebrow">Photos (.zip – choose both)</span><input type="file" id="impZip" multiple accept=".zip,application/zip"></label>
     <button class="btn" data-runimport>${ico('archive')}Start import</button>
     <p id="impStatus" class="muted num" style="margin:0" role="status">${esc(S.importResult||'')}</p>
   </div>`;
@@ -659,7 +659,7 @@ document.addEventListener('click', async e=>{
   if('backup' in d){ c.disabled=true; c.textContent='Backing up…'; try{ const day=await backupNow(true); toast('Backup saved to Drive ('+day+')'); }catch(err){ toast('Backup failed: '+err.message); } render(); return; }
   if('signout' in d){ await signOut(); location.reload(); return; }
   if('runimport' in d){
-    const j=$('#impJson').files[0], z=$('#impZip').files[0], out=$('#impStatus');
+    const j=$('#impJson').files[0], z=[...$('#impZip').files], out=$('#impStatus');
     if(!j){ out.textContent='Choose the records file (.json) first.'; out.style.color='var(--rust)'; return; }
     c.disabled=true; out.style.color=''; S.importing=true;
     try{ await getToken(true); }catch(err){ out.textContent='Google Drive permission is needed for the photos: '+err.message; c.disabled=false; return; }

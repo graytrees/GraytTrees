@@ -5,7 +5,7 @@ import { bulkWrite, savePhoto, state } from './store.js';
 import { upload } from './drive.js';
 import { makeThumb } from './photos.js';
 
-export async function runImport(jsonFile, zipFile, progress) {
+export async function runImport(jsonFile, zipFiles, progress) {
   const data = JSON.parse(await jsonFile.text());
   const say = (msg, a, b) => progress?.(msg, a, b);
 
@@ -18,7 +18,9 @@ export async function runImport(jsonFile, zipFile, progress) {
   await bulkWrite('logs', data.logs, (a, b) => say('Saving history…', a, b));
 
   // Photos from the zip → thumbnail with the records + full size to Drive
-  const zip = zipFile ? await JSZip.loadAsync(zipFile) : null;
+  const zips = [];
+  for (const z of [].concat(zipFiles || [])) zips.push(await JSZip.loadAsync(z));
+  const inZip = name => zips.map(z => z.file(name)).find(Boolean);
   const list = data.photos || [];
   let done = 0, failed = 0;
   for (const p of list) {
@@ -26,7 +28,7 @@ export async function runImport(jsonFile, zipFile, progress) {
     if (state.photos[p.id]?.driveId || state.photos[p.id]?.url && !p.file) { say('Photos', done, list.length); continue; }
     try {
       let blob = null;
-      if (p.file && zip?.file(p.file)) blob = await zip.file(p.file).async('blob');
+      if (p.file && inZip(p.file)) blob = await inZip(p.file).async('blob');
       else if (p.url) { try { const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 8000); const r = await fetch(p.url, { mode: 'cors', signal: ac.signal }); clearTimeout(tm); if (r.ok) blob = await r.blob(); } catch (e) { /* keep as link */ } }
       if (blob) {
         const thumb = await makeThumb(blob);
