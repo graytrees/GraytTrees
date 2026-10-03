@@ -1,0 +1,12 @@
+rules_version = '2';
+// Only Nathan's Google account can read or write, and only under his own user folder.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.email == 'graytshotz@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+  }
+}

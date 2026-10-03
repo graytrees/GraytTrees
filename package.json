@@ -1,0 +1,22 @@
+{
+  "name": "graytrees",
+  "version": "1.0.0",
+  "description": "Graytrees Bonsai – private bonsai collection app (PWA)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:ui": "vite --config vite.mock.config.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "firebase": "^11.10.0",
+    "jszip": "^3.10.2"
+  },
+  "devDependencies": {
+    "vite": "^6.4.3",
+    "vite-plugin-pwa": "^1.3.0"
+  },
+  "private": true,
+  "type": "module"
+}
