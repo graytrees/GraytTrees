@@ -6,8 +6,8 @@ A private, installable web app (PWA) for Nathan's bonsai collection. Works on ph
 
 | Part | Service | Account | What's in it |
 |---|---|---|---|
-| App code + version history | GitHub (repo `graytrees`) | Nathan's GitHub | The program only. No records or photos. Public. |
-| App web address | GitHub Pages | same GitHub | `https://<username>.github.io/graytrees/` |
+| App code + version history | GitHub (`graytrees/Graytrees`) | Nathan's GitHub | The program only. No records or photos. Public. |
+| App web address | GitHub Pages | same GitHub | `https://graytrees.github.io/Graytrees/` |
 | Sign-in | Firebase Authentication (Google) | Nathan's Google account | Only `graytshotz@gmail.com` is allowed in. |
 | Records | Cloud Firestore, Sydney region | Firebase project `graytrees` | Trees, history, pots, mixes, settings. Free tier. |
 | Photos (full size) + backups | Google Drive → `Graytrees/` folder | Nathan's Google account | `Photos/` and `Backups/` (weekly JSON + history CSV). |

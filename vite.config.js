@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// GitHub Pages serves the app at https://<username>.github.io/graytrees/
-const base = process.env.BASE_PATH || '/graytrees/';
+// GitHub Pages serves the app at https://graytrees.github.io/Graytrees/
+const base = process.env.BASE_PATH || '/Graytrees/';
 
 export default defineConfig({
   base,
