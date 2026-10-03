@@ -12,7 +12,7 @@ export const firebaseConfig = {
 
 // OAuth web client used to ask for Google Drive access (photos + backups).
 // Firebase creates it automatically: Authentication → Sign-in method → Google → Web SDK configuration.
-export const googleClientId = '__WEB_CLIENT_ID__';
+export const googleClientId = '924620275504-d1mmgh0mbdln19043n0t7b8trvel38m6.apps.googleusercontent.com';
 
 // The only Google account allowed in. Matches firestore.rules.
 export const ownerEmail = 'graytshotz@gmail.com';
