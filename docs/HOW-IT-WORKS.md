@@ -1,4 +1,4 @@
-# Graytrees Bonsai – how it works
+# GraytTrees Bonsai – how it works
 
 A private, installable web app (PWA) for Nathan's bonsai collection. Works on phone, tablet and laptop, and offline in the garden and shed.
 
@@ -6,17 +6,17 @@ A private, installable web app (PWA) for Nathan's bonsai collection. Works on ph
 
 | Part | Service | Account | What's in it |
 |---|---|---|---|
-| App code + version history | GitHub (`graytrees/Graytrees`) | Nathan's GitHub | The program only. No records or photos. Public. |
-| App web address | GitHub Pages | same GitHub | `https://graytrees.github.io/Graytrees/` |
+| App code + version history | GitHub (`graytrees/GraytTrees`) | Nathan's GitHub | The program only. No records or photos. Public. |
+| App web address | GitHub Pages | same GitHub | `https://graytrees.github.io/GraytTrees/` |
 | Sign-in | Firebase Authentication (Google) | Nathan's Google account | Only `graytshotz@gmail.com` is allowed in. |
 | Records | Cloud Firestore, Sydney region | Firebase project `graytrees` | Trees, history, pots, mixes, settings. Free tier. |
-| Photos (full size) + backups | Google Drive → `Graytrees/` folder | Nathan's Google account | `Photos/` and `Backups/` (weekly JSON + history CSV). |
+| Photos (full size) + backups | Google Drive → `GraytTrees/` folder | Nathan's Google account | `Photos/` and `Backups/` (weekly JSON + history CSV). |
 
 ## Safety rules built in
 
 - History is never silently lost: editing an entry keeps the earlier version; deleting moves it to the **Recycle bin** (restorable).
 - Offline: everything is cached on each device. Logged work and photos taken with no signal are saved on the device and sync/upload automatically when back in range.
-- Weekly backup to Drive, readable without the app. Copy the `Graytrees/Backups` folder into the IDrive backup set for a second copy.
+- Weekly backup to Drive, readable without the app. Copy the `GraytTrees/Backups` folder into the IDrive backup set for a second copy.
 - Firestore security rules (`firestore.rules`) allow only Nathan's verified Google account, only under his own user folder.
 - Drive permission is the narrow `drive.file` scope: the app can only see files it created.
 

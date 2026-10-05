@@ -90,7 +90,7 @@ export async function bulkWrite(name, records, onProgress) {
 
 /* ---------- full export (backups) ---------- */
 export async function exportAll() {
-  const out = { exported: new Date().toISOString(), app: 'Graytrees Bonsai', version: 1 };
+  const out = { exported: new Date().toISOString(), app: 'GraytTrees Bonsai', version: 1 };
   for (const name of COLS) {
     const snap = await getDocs(col(name));
     out[name] = snap.docs.map(d => {

@@ -1,7 +1,7 @@
 {
   "name": "graytrees",
   "version": "1.0.0",
-  "description": "Graytrees Bonsai – private bonsai collection app (PWA)",
+  "description": "GraytTrees Bonsai – private bonsai collection app (PWA)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

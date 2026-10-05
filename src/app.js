@@ -91,7 +91,7 @@ function repotStatus(t){
   return {cls, text, due: months<=0 && inWindow, last, next};
 }
 function sourcePills(l){
-  const map = {'Bonsai Album':'Album','Care App':'Care App','2003–2010 spreadsheet':'2003–10 sheet','Graytrees':'Graytrees'};
+  const map = {'Bonsai Album':'Album','Care App':'Care App','2003–2010 spreadsheet':'2003–10 sheet','Graytrees':'GraytTrees'};
   return l.sources.map(s => `<span class="pill src">${esc(map[s]||s)}</span>`).join('') + ((l.flags||[]).includes('confirmed') ? `<span class="pill ok">Confirmed repot</span>` : '') + (l.flags && (l.flags.includes('bulk')||l.flags.includes('tick')) ? (S.ticks[l.id]==='real' ? `<span class="pill ok">Confirmed repot</span>` : S.ticks[l.id]==='tick' ? `<span class="pill unc">Reminder tick – not counted</span>` : `<span class="pill unc" title="Same-day tick on many trees in the Care App">Unconfirmed tick</span>`) : '');
 }
 function actChips(l){ return l.actions.map(a => `<span class="act ${kindOf(a)}">${ico(ACT[a]?.icon||'eye')}${esc(ACT[a]?.label||a)}</span>`).join(''); }
@@ -106,12 +106,12 @@ function go(view, opts={}){ Object.assign(S, {view}, opts); sync(); render(); wi
 
 /* --- search header --- */
 function header(placeholder='Search trees, species, history…'){
-  return `<div class="topbar"><div class="brand"><div class="seal" aria-hidden="true">GT</div><b>Graytrees</b></div>
+  return `<div class="topbar"><div class="brand"><div class="seal" aria-hidden="true">GT</div><b>GraytTrees</b></div>
   <label class="search">${ico('search')}<input id="q" type="search" placeholder="${placeholder}" value="${esc(S.q)}" aria-label="Search"></label></div>`;
 }
 function proto(){
   if(!state.ready.trees) return `<div class="proto">${ico('history')}<div>Loading your records…</div></div>`;
-  if(!TREES.length) return `<div class="card" style="padding:18px;margin-bottom:14px"><h2 style="font-size:calc(22px*var(--fs))">Welcome to Graytrees</h2><p class="muted">Your collection is empty. Load your merged records (from Bonsai Album, the Care App and the 2003–2010 sheet) to get started.</p><button class="btn" data-nav="import">${ico('archive')}Import my records</button></div>`;
+  if(!TREES.length) return `<div class="card" style="padding:18px;margin-bottom:14px"><h2 style="font-size:calc(22px*var(--fs))">Welcome to GraytTrees</h2><p class="muted">Your collection is empty. Load your merged records (from Bonsai Album, the Care App and the 2003–2010 sheet) to get started.</p><button class="btn" data-nav="import">${ico('archive')}Import my records</button></div>`;
   const off = !navigator.onLine;
   if(off || state.pending) return `<div class="proto">${ico('history')}<div><b>${off?'No signal.':'Syncing…'}</b> ${off?'Everything you log is saved on this device and will sync when you\'re back in range.':'Your latest changes are being saved to the cloud.'}</div></div>`;
   return '';
@@ -432,10 +432,10 @@ function viewSettings(){
   <div class="stack">
     <div class="card" style="padding:16px"><b>Text size</b><p class="muted" style="margin:4px 0 10px;font-size:15px">Set separately on each device.</p>
       <div class="seg" role="group" aria-label="Text size">${[['1','Standard'],['1.12','Large'],['1.25','Larger']].map(([k,l])=>`<button data-fs="${k}" aria-pressed="${textSize()===k}">${l}</button>`).join('')}</div></div>
-    <div class="card" style="padding:16px"><b>Google Drive</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">Full-size photos and weekly backups go into a "Graytrees" folder in your Drive. The app can only see files it created.</p>
+    <div class="card" style="padding:16px"><b>Google Drive</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">Full-size photos and weekly backups go into a "GraytTrees" folder in your Drive. The app can only see files it created.</p>
       ${driveConnected()?`<span class="pill ok">Connected</span>`:`<button class="btn small" data-drive>${ico('check')}Connect Google Drive</button>`}
       <p class="muted num" style="font-size:calc(14px*var(--fs));margin:10px 0 0" id="pendingInfo"></p></div>
-    <div class="card" style="padding:16px"><b>Weekly backup</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">Every 7 days, the next time the app is opened online, all records are saved to Drive → Graytrees → Backups as a JSON file and a history spreadsheet (CSV).</p>
+    <div class="card" style="padding:16px"><b>Weekly backup</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">Every 7 days, the next time the app is opened online, all records are saved to Drive → GraytTrees → Backups as a JSON file and a history spreadsheet (CSV).</p>
       <p style="margin:0 0 10px">${b?.lastDay?`Last backup <b>${fmtD(b.lastDay)}</b> · ${b.trees} trees, ${b.logs} entries`:'No backup yet.'}</p>
       <button class="btn small" data-backup>${ico('archive')}Back up now</button></div>
     <div class="card" style="padding:16px"><b>Import records</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">Load the merged records file and photo bundle. Safe to run again; nothing is duplicated.</p><button class="btn ghost small" data-nav="import">${ico('archive')}Open import</button></div>

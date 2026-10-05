@@ -1,4 +1,4 @@
-// Google Drive: full-size photos and weekly backups go into a "Graytrees" folder in
+// Google Drive: full-size photos and weekly backups go into a "GraytTrees" folder in
 // the owner's own Drive. Uses the narrow drive.file permission – the app can only see
 // files it created itself, nothing else in Drive.
 import { googleClientId, driveFolderName, ownerEmail } from './config.js';
@@ -51,7 +51,9 @@ const folderCache = {};
 async function folder(name, parent) {
   const key = (parent || 'root') + '/' + name;
   if (folderCache[key]) return folderCache[key];
-  const q = encodeURIComponent(`name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false and '${parent || 'root'}' in parents`);
+  // the main folder was first called "Graytrees"; accept either name
+  const nm = !parent && name === 'GraytTrees' ? `(name='GraytTrees' or name='Graytrees')` : `name='${name}'`;
+  const q = encodeURIComponent(`${nm} and mimeType='application/vnd.google-apps.folder' and trashed=false and '${parent || 'root'}' in parents`);
   const found = await (await api(`/files?q=${q}&fields=files(id)`)).json();
   let id = found.files?.[0]?.id;
   if (!id) {

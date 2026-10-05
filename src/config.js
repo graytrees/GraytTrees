@@ -18,4 +18,4 @@ export const googleClientId = '924620275504-d1mmgh0mbdln19043n0t7b8trvel38m6.app
 export const ownerEmail = 'graytshotz@gmail.com';
 
 // Folder created in the owner's Google Drive.
-export const driveFolderName = 'Graytrees';
+export const driveFolderName = 'GraytTrees';

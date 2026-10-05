@@ -6,7 +6,7 @@ import { ownerEmail } from './config.js';
 import { registerSW } from 'virtual:pwa-register';
 
 const main = document.getElementById('main');
-const gate = html => { document.body.classList.add('gated'); main.innerHTML = `<div class="gate"><div class="seal big" aria-hidden="true">GT</div><h1>Graytrees Bonsai</h1>${html}</div>`; };
+const gate = html => { document.body.classList.add('gated'); main.innerHTML = `<div class="gate"><div class="seal big" aria-hidden="true">GT</div><h1>GraytTrees Bonsai</h1>${html}</div>`; };
 
 let started = false;
 // a photo link that no longer works (e.g. an old Care App link) just hides instead of showing a broken icon
