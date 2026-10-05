@@ -29,7 +29,7 @@ A private, installable web app (PWA) for Nathan's bonsai collection. Works on ph
 
 Rolling back = re-publishing an earlier commit from GitHub's history.
 
-Changes that alter how records are stored: take a backup first (More → Backups & Drive → Back up now).
+Changes that alter how records are stored: take a backup first (More → Settings & backups → Back up now).
 
 ## Code map (`src/`)
 
