@@ -35,7 +35,8 @@ Changes that alter how records are stored: take a backup first (More → Setting
 
 - `main.js` – start-up, sign-in gate, update banner
 - `app.js` – all screens (collection, tree page, season, history, log sheet, pots, mixes, forms)
-- `knowledge.js` – Brisbane monthly advice and species care notes (from Nathan's calendar + Red Dragon newsletters)
+- `knowledge.js` – Brisbane monthly advice and species care notes (from Nathan's calendar, Red Dragon newsletters, his own repot history and Oct 2026 research)
+- Season calendars (Oct 2026): three groups – Exotics (repot mid-Jul–Aug), Natives (Aug–Sep), Ficus & tropicals (mid-Oct–Dec, never Jan) – plus an optional autumn window (Mar–May, light root work) and a per-tree autumn flag; azaleas can be set to repot before or after flowering
 - `store.js` – reading/writing records (Firestore), revisions, recycle bin
 - `photos.js` – thumbnails, Drive upload, offline photo queue
 - `drive.js` – Google Drive access

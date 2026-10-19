@@ -196,6 +196,7 @@ dl.info dt:first-of-type,dl.info dt:first-of-type + dd{border-top:0}
 .cal .bar{position:absolute;inset:8px 0;background:var(--k);opacity:.85}
 .cal .bar.s{border-top-left-radius:8px;border-bottom-left-radius:8px;left:3px}
 .cal .bar.e{border-top-right-radius:8px;border-bottom-right-radius:8px;right:3px}
+.cal .bar.opt{opacity:.35}
 .cal .seas th{font-size:calc(12px*var(--fs));letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 0;text-align:center;border-left:1px solid var(--line)}
 .cal tr.mine td .dot{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:50%;background:var(--wire)}
 .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:calc(14px*var(--fs));margin-block:10px}

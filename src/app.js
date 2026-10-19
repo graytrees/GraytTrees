@@ -42,21 +42,31 @@ const kindOf = a => (ACT[a] && ACT[a].kind) || a;
 /* --- Season guidance: draft for Brisbane (subtropical, SE Qld). Months 1-12. --- */
 const SEASONS = [['Summer',[12,1,2]],['Autumn',[3,4,5]],['Winter',[6,7,8]],['Spring',[9,10,11]]];
 const TASKS = {repot:{label:'Repot', c:'var(--wire)'}, struct:{label:'Hard / structural prune', c:'#7A5A2E'}, prune:{label:'Trim new growth', c:'var(--moss)'},
-  wire:{label:'Wire', c:'var(--glaze)'}, defol:{label:'Defoliate / decandle', c:'#8C9A3A'}, clean:{label:'Clean / needle work', c:'#9C7FB0'}, potash:{label:'Liquid potash', c:'#C2577A'}, fert:{label:'Feed', c:'#6E8FA0'}};
-const GUIDE = {  /* timing from Nathan's monthly calendar + Red Dragon newsletters (Brisbane) */
-  pine:{name:'Black pines', every:3, rows:{repot:[7,8,9], struct:[7], wire:[6,7], defol:[9], clean:[3,4,5,6], prune:[12,1,2,10,11], fert:[3,4,5,9,10,11,12,1,2]}},
-  elm:{name:'Chinese elms', every:2, rows:{repot:[6,7,8,9,10], struct:[6,7], prune:[9,10,11,12,1,2,3], wire:[6,7], defol:[12], fert:[3,4,5,9,10,11]}},
-  juniper:{name:'Junipers', every:3, rows:{repot:[7,8,9,10], struct:[6,7,8], prune:[9,10,11,12,1,2,3], wire:[6,7], clean:[3,9], fert:[3,4,5,9,10,11,12,1,2]}},
-  fig:{name:'Figs', every:2, rows:{repot:[10,11], prune:[9,10,11,12,1,2,3], defol:[12], wire:[11,12,1,2], fert:[3,4,5,9,10,11]}},
-  cler:{name:'Clerodendrums', every:2, rows:{repot:[9,10], prune:[10,11,12,1,2,3], wire:[10,11,12,1,2], fert:[3,4,5,9,10,11]}},
-  swamp:{name:'Swamp cypress', every:2, rows:{repot:[8,9], struct:[7,8], prune:[10,11,12,1,2,3], wire:[6,7], fert:[9,10,11,12,1,2,3]}},
-  podo:{name:'Buddhist pine', every:3, rows:{repot:[9,10], prune:[9,10,11,12,1,2,3,4], wire:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
-  mela:{name:'Melaleuca', every:2, rows:{repot:[9,10], prune:[10,11,12,1,2,3], fert:[3,4,5,9,10,11]}},
-  bougie:{name:'Bougainvillea', every:2, rows:{repot:[10,11,12], prune:[1,2,3], wire:[11,12,1,2], potash:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
-  azalea:{name:'Azalea', every:2, rows:{repot:[9,10], prune:[11,12,1,2], wire:[12,1,2], potash:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
-  african:{name:'Jaboticaba', every:2, rows:{repot:[9,10,11], prune:[11,12,1,2,3], wire:[11,12,1,2], potash:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
+  wire:{label:'Wire', c:'var(--glaze)'}, defol:{label:'Defoliate / decandle', c:'#8C9A3A'}, clean:{label:'Clean / needle work', c:'#9C7FB0'}, potash:{label:'Liquid potash', c:'#C2577A'}, fert:{label:'Feed', c:'#6E8FA0'}, autumn:{label:'Autumn option', c:'var(--wire)'}};
+const GUIDE = {  /* timing from Nathan's monthly calendar, Red Dragon newsletters and his own repot history (Brisbane); repot windows revised Oct 2026 */
+  pine:{name:'Black pines', every:3, rows:{repot:[7,8], autumn:[3,4,5], struct:[7], wire:[6,7], defol:[9], clean:[3,4,5,6], prune:[12,1,2,10,11], fert:[3,4,5,9,10,11,12,1,2]}},
+  elm:{name:'Chinese elms', every:2, rows:{repot:[7,8], autumn:[3,4,5], struct:[6,7], prune:[9,10,11,12,1,2,3], wire:[6,7], defol:[12], fert:[3,4,5,9,10,11]}},
+  juniper:{name:'Junipers', every:3, rows:{repot:[7,8], autumn:[3,4,5], struct:[6,7,8], prune:[9,10,11,12,1,2,3], wire:[6,7], clean:[3,9], fert:[3,4,5,9,10,11,12,1,2]}},
+  fig:{name:'Figs', every:2, rows:{repot:[10,11,12], autumn:[3,4], prune:[9,10,11,12,1,2,3], defol:[12], wire:[11,12,1,2], fert:[3,4,5,9,10,11]}},
+  cler:{name:'Clerodendrums', every:2, rows:{repot:[10,11,12], autumn:[3,4], prune:[10,11,12,1,2,3], wire:[10,11,12,1,2], fert:[3,4,5,9,10,11]}},
+  swamp:{name:'Swamp cypress', every:2, rows:{repot:[7,8], autumn:[3,4,5], struct:[7,8], prune:[10,11,12,1,2,3], wire:[6,7], fert:[9,10,11,12,1,2,3]}},
+  podo:{name:'Buddhist pine', every:3, rows:{repot:[7,8], autumn:[3,4,5], prune:[9,10,11,12,1,2,3,4], wire:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
+  mela:{name:'Melaleuca', every:2, rows:{repot:[8,9,10], autumn:[3,4,5], prune:[10,11,12,1,2,3], fert:[3,4,5,9,10,11]}},
+  bougie:{name:'Bougainvillea', every:2, rows:{repot:[10,11,12], autumn:[3,4], prune:[1,2,3], wire:[11,12,1,2], potash:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
+  azalea:{name:'Azaleas', every:2, rows:{repot:[7,8], autumn:[3,4,5], prune:[11,12,1,2], wire:[12,1,2], potash:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
+  african:{name:'Jaboticaba', every:2, rows:{repot:[10,11,12], autumn:[3,4], prune:[11,12,1,2,3], wire:[11,12,1,2], potash:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
   other:{name:'Other', every:2, rows:{}}
 };
+/* the three season calendars (Oct 2026): grouped by what wakes each tree up */
+const CALS = [
+  {id:'exotic', name:'Exotics', blurb:'Northern-hemisphere trees. Repot mid-July to August: elms first, then junipers and pines.', species:['elm','juniper','pine','swamp','podo','azalea']},
+  {id:'native', name:'Natives', blurb:'Australian natives. Repot August to September, October at a stretch.', species:['mela']},
+  {id:'tropical', name:'Ficus & tropicals', blurb:'Repot mid-October to December, once nights stay above about 15°C. Never January.', species:['fig','cler','bougie','african']}
+];
+const calOf = g => CALS.find(c=>c.species.includes(g));
+const AZ_AFTER = [10,11];  /* azalea repotted straight after flowering */
+const repotWin = t => (t.group==='azalea' && t.azTiming==='after') ? AZ_AFTER : ((GUIDE[t.group]||GUIDE.other).rows.repot||[]);
+const autumnWin = t => (GUIDE[t.group]||GUIDE.other).rows.autumn||[];
 /* already set up in Nathan's TickTick "Bonsai" list (recurring, Saturdays 8am) */
 const ROUTINES = [
   {name:'Fertilise Bonsai', every:'Every 2nd Saturday', icon:'drop', first:'2026-10-03', weeks:2},
@@ -85,9 +95,9 @@ function repotStatus(t){
   const d = parseD(last.date); let next = new Date(d); next.setFullYear(d.getFullYear()+evMin(t));
   const rm = repotMonth(t); if(rm) next = new Date(rm[0], rm[1]-1, 1);
   const months = (next.getFullYear()-TODAY.getFullYear())*12 + next.getMonth()-TODAY.getMonth();
-  const inWindow = (g.rows.repot||[]).includes(NOW_M);
+  const inWindow = repotWin(t).includes(NOW_M), inAutumn = autumnWin(t).includes(NOW_M);
   let cls='ok', text='Next repot '+MONTHS[next.getMonth()]+' '+next.getFullYear();
-  if(months<=0){ cls = inWindow ? 'due' : 'late'; text = inWindow ? 'Repot due now' : 'Repot due (next window)'; }
+  if(months<=0){ cls = inWindow ? 'due' : 'late'; text = inWindow ? 'Repot due now' : inAutumn ? 'Repot overdue · autumn option open (light root work)' : 'Repot due (next window)'; }
   return {cls, text, due: months<=0 && inWindow, last, next};
 }
 function sourcePills(l){
@@ -242,23 +252,35 @@ function tabPhotos(t){
     <label class="btn small">${ico('cam')}Add photo<input type="file" accept="image/*" multiple hidden data-addphoto="${t.id}"></label></div>
     ${ps.length?`<div class="pgrid">${ps.map(p=>`<figure><img src="${p.src}" alt="" loading="lazy" data-zoom="${p.id}"><figcaption class="num">${dated[p.id]?fmtD(dated[p.id]):(p.origin==='Bonsai Album'?'Bonsai Album':'Old plant list')}</figcaption></figure>`).join('')}</div>`:'<div class="empty">No photos yet.</div>'}`;
 }
+const rowList = rows => Array.isArray(rows) ? rows : Object.entries(rows).map(([k,months])=>({k, label:TASKS[k].label, months}));
 function calRows(rows, mine){
-  const keys = Object.keys(rows);
-  return keys.map(k=>`<tr><th scope="row">${TASKS[k].label}</th>${MONTHS.map((m,i)=>{const on=rows[k].includes(i+1), prev=rows[k].includes(i===0?12:i), next=rows[k].includes(i===11?1:i+2);
-    return `<td class="${i+1===NOW_M?'now':''}">${on?`<span class="bar${!prev||i===0?' s':''}${!next||i===11?' e':''}" style="--k:${TASKS[k].c}"></span>`:''}</td>`;}).join('')}</tr>`).join('')
+  return rowList(rows).map(({k,label,months})=>`<tr><th scope="row">${esc(label)}</th>${MONTHS.map((m,i)=>{const on=months.includes(i+1), prev=months.includes(i===0?12:i), next=months.includes(i===11?1:i+2);
+    return `<td class="${i+1===NOW_M?'now':''}">${on?`<span class="bar${!prev||i===0?' s':''}${!next||i===11?' e':''}${k==='autumn'?' opt':''}" style="--k:${TASKS[k].c}"></span>`:''}</td>`;}).join('')}</tr>`).join('')
   + (mine?`<tr class="mine"><th scope="row" style="color:var(--wire)">Your repots</th>${MONTHS.map((m,i)=>{const n=mine[i+1]||0;return `<td class="${i+1===NOW_M?'now':''}">${n?`<span class="dot" style="width:${8+Math.min(n,12)*1.6}px;height:${8+Math.min(n,12)*1.6}px" title="${n} repot${n>1?'s':''}"></span>`:''}</td>`;}).join('')}</tr>`:'');
 }
 function calTable(rows, mine){
-  const leg = `<div class="cal-legend">${Object.keys(rows).map(k=>`<span><i style="background:${TASKS[k].c}"></i>${TASKS[k].label}</span>`).join('')}${mine?`<span><i style="background:var(--wire);width:9px;border-radius:50%"></i>Your repots</span>`:''}</div>`;
+  const leg = `<div class="cal-legend">${[...new Set(rowList(rows).map(r=>r.k))].map(k=>`<span><i style="background:${TASKS[k].c}${k==='autumn'?';opacity:.35':''}"></i>${TASKS[k].label}</span>`).join('')}${mine?`<span><i style="background:var(--wire);width:9px;border-radius:50%"></i>Your repots</span>`:''}</div>`;
   return `<div class="cal">${leg}<table><thead><tr class="seas"><th></th>${MONTHS.map((m,i)=>{const s=SEASONS.find(s=>s[1].includes(i+1));return `<th style="${i+1===NOW_M?'color:var(--wire)':''}">${s[1][0]===i+1||i===0?s[0]:''}</th>`;}).join('')}</tr>
   <tr><th></th>${MONTHS.map((m,i)=>`<th class="${i+1===NOW_M?'now':''}">${m}</th>`).join('')}</tr></thead><tbody>${calRows(rows,mine)}</tbody></table></div>`;
 }
+const SHORT = {pine:'pines',elm:'elms',juniper:'junipers',fig:'figs',cler:'clerodendrums',swamp:'swamp cypress',podo:'Buddhist pine',mela:'melaleuca',bougie:'bougainvillea',azalea:'azaleas',african:'jaboticaba'};
+function mergedRows(keys){
+  const out=[];
+  for(const task of ['repot','autumn',...Object.keys(TASKS).filter(x=>x!=='repot'&&x!=='autumn')]){
+    const pats = new Map();
+    keys.forEach(k=>{ const m=GUIDE[k].rows[task]; if(m&&m.length){ const id=[...m].sort((a,b)=>a-b).join(','); if(!pats.has(id)) pats.set(id,{months:m,who:[]}); pats.get(id).who.push(SHORT[k]); }});
+    const all = pats.size===1 && [...pats.values()][0].who.length===keys.length;
+    pats.forEach(p=>out.push({k:task, months:p.months, label: all||keys.length===1 ? TASKS[task].label : TASKS[task].label+' · '+p.who.join(', ')}));
+  }
+  return out;
+}
 function myRepotMonths(ids){ const m={}; LOGS.forEach(l=>{ if(l.actions.some(a=>kindOf(a)==='repot') && l.trees.some(id=>ids.includes(id)) && !(l.flags||[]).includes('bulk') && l.date){ const mm=+l.date.slice(5,7); m[mm]=(m[mm]||0)+1; }}); return m; }
 function tabCal(t){
-  const g = GUIDE[t.group]||GUIDE.other;
+  const g = GUIDE[t.group]||GUIDE.other, c = calOf(t.group);
   const mine = myRepotMonths([t.id]);
-  return `<p class="muted" style="margin-top:0;font-size:calc(15px*var(--fs))">Timing for ${esc(g.name.toLowerCase())} in Brisbane, from your monthly calendar and the Red Dragon newsletters. The orange dots show when you've actually repotted this tree.</p>
-  ${Object.keys(g.rows).length?calTable(g.rows, mine):'<div class="empty">No guidance for this species yet.</div>'}
+  const rows = {...g.rows, ...(t.group==='azalea'?{repot:repotWin(t)}:{})};
+  return `<p class="muted" style="margin-top:0;font-size:calc(15px*var(--fs))">Timing for ${esc(g.name.toLowerCase())} in Brisbane${c?', on your <b style="color:var(--ink)">'+esc(c.name)+'</b> calendar':''}${t.group==='azalea'?(t.azTiming==='after'?' (repotting after flowering)':' (repotting before flowering, flowers pinched off)'):''}. The orange dots show when you've actually repotted this tree.${t.autumn==='yes'?' <span class="pill unc">Flagged for autumn repot</span>':''}</p>
+  ${Object.keys(rows).length?calTable(rows, mine):'<div class="empty">No guidance for this species yet.</div>'}
   ${NOTES[t.group]?`<div class="card" style="padding:16px;margin-top:12px"><span class="eyebrow">Care notes</span><ul class="done-list" style="margin-top:8px">${NOTES[t.group].map(n=>`<li>${ico('leaf')}<span>${esc(n)}</span></li>`).join('')}</ul><p class="muted" style="font-size:calc(13px*var(--fs));margin:8px 0 0">From your monthly calendar and the Red Dragon newsletters</p></div>`:''}`;
 }
 function tabRem(t){
@@ -273,7 +295,7 @@ function tabRem(t){
 /* ---- monthly look-ahead: what falls due in a given month ---- */
 function addMonths(y,m,n){ const d=new Date(y,m-1+n,1); return [d.getFullYear(), d.getMonth()+1]; }
 function repotMonth(t){
-  const g = GUIDE[t.group]||GUIDE.other, win = g.rows.repot||[]; if(!win.length) return null;
+  const win = repotWin(t); if(!win.length) return null;
   const last = lastOf(t.id,['repot']);
   let [y,m] = last ? (()=>{const d=parseD(last.date); return [d.getFullYear()+evMin(t), d.getMonth()+1];})() : [TODAY.getFullYear(), NOW_M];
   if(y < TODAY.getFullYear() || (y===TODAY.getFullYear() && m < NOW_M)) { y=TODAY.getFullYear(); m=NOW_M; }
@@ -290,19 +312,22 @@ function lookahead(y,m){
       const w = g.rows[task]||[]; if(w.includes(m) && !w.includes(prev)) opens.push({task, g, trees:ts, until:MONTHS[w.reduce((a,x)=>x,0)-1]});
     }
   }
+  const overdueBy = t => { const l=lastOf(t.id,['repot']); if(!l) return false; const d=parseD(l.date); return (d.getFullYear()+evMin(t))*12+d.getMonth()+1 <= y*12+m; };
+  const autumn = active.filter(t=>!repots.includes(t) && autumnWin(t).includes(m) && (t.autumn==='yes' || overdueBy(t)));
   const routines = ROUTINES.map(r=>({r, dates:routineDates(r,y,m)}));
-  return {repots, opens, routines, coll:(COLLECTION[m]||[])};
+  return {repots, opens, autumn, routines, coll:(COLLECTION[m]||[])};
 }
 function tickTitle(o){ const verb={struct:'Hard prune',wire:'Wire',defol:o.g.name==='Black pines'?'Decandle':'Defoliate',clean:o.g.name==='Black pines'?'Needle clean-up':'Clean out dead needles',potash:'Liquid potash (fortnightly)',prune:'Start trimming new growth'}[o.task]; return `${verb}: ${o.g.name.toLowerCase()} (${o.trees.length} tree${o.trees.length>1?'s':''})`; }
 function viewAhead(){
   const sel = S.ahead || 0, [y,m] = addMonths(TODAY.getFullYear(), NOW_M, sel), A = lookahead(y,m);
-  const nItems = A.repots.length + A.opens.length + A.coll.length;
+  const nItems = A.repots.length + A.opens.length + A.coll.length + A.autumn.length;
   return `<div class="section-h" style="margin-top:8px"><div><span class="eyebrow">Monthly look-ahead</span><h2>What falls due</h2></div></div>
-  <div class="chips" role="group" aria-label="Month">${[0,1,2,3,4,5].map(i=>{const [yy,mm]=addMonths(TODAY.getFullYear(),NOW_M,i); const n=(()=>{const a=lookahead(yy,mm); return a.repots.length+a.opens.length+a.coll.length;})(); return `<button class="chip" data-ahead="${i}" aria-pressed="${sel===i}">${MONTHS[mm-1]}${yy!==TODAY.getFullYear()?' '+String(yy).slice(2):''} <span class="num muted">${n}</span></button>`;}).join('')}</div>
+  <div class="chips" role="group" aria-label="Month">${[0,1,2,3,4,5].map(i=>{const [yy,mm]=addMonths(TODAY.getFullYear(),NOW_M,i); const n=(()=>{const a=lookahead(yy,mm); return a.repots.length+a.opens.length+a.coll.length+a.autumn.length;})(); return `<button class="chip" data-ahead="${i}" aria-pressed="${sel===i}">${MONTHS[mm-1]}${yy!==TODAY.getFullYear()?' '+String(yy).slice(2):''} <span class="num muted">${n}</span></button>`;}).join('')}</div>
   <div class="ahead">
     <div class="card" style="padding:16px">
       <h3 style="font-size:calc(20px*var(--fs))">${MONTHS_L[m-1]} ${y}</h3>
       ${A.repots.length?`<span class="eyebrow" style="display:block;margin-top:12px">Repots due (${A.repots.length})</span>${A.repots.map(t=>{const l=lastOf(t.id,['repot']); return `<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${l?'Last repot '+fmtD(l.date,l.precision):'No repot on record'} · every ${evText(t)} yrs</span></span>${ico('pot')}</button>`;}).join('')}`:''}
+      ${A.autumn.length?`<span class="eyebrow" style="display:block;margin-top:14px">Autumn repot option (${A.autumn.length}) · light root work only</span>${A.autumn.map(t=>{const l=lastOf(t.id,['repot']); return `<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${t.autumn==='yes'?'Flagged by you':'Overdue'}${l?' · last repot '+fmtD(l.date,l.precision):''}</span></span><span class="pill unc">Optional</span></button>`;}).join('')}`:''}
       ${A.opens.length?`<span class="eyebrow" style="display:block;margin-top:14px">Seasons opening</span>${A.opens.map(o=>`<div class="due-item"><span class="ph" style="width:44px;height:44px;border-radius:10px;flex:none;background:${TASKS[o.task].c};color:#fff">${ico(o.task==='wire'?'wire':o.task==='defol'?'leaf':o.task==='potash'?'drop':o.task==='clean'?'brush':'scissors')}</span><span class="t"><b>${esc(tickTitle(o))}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${o.trees.map(t=>esc(t.name)).slice(0,4).join(', ')}${o.trees.length>4?' and '+(o.trees.length-4)+' more':''}</span></span></div>`).join('')}`:''}
       ${A.coll.length?`<span class="eyebrow" style="display:block;margin-top:14px">Whole collection</span>${A.coll.map(c=>`<div class="due-item"><span class="ph" style="width:44px;height:44px;border-radius:10px;flex:none">${ico('tree')}</span><span class="t"><b>${esc(c)}</b></span></div>`).join('')}`:''}
       ${!nItems?'<p class="muted">Nothing new falls due this month. Routine feeding and spraying carry on.</p>':''}
@@ -318,17 +343,25 @@ function viewAhead(){
       <span class="eyebrow">TickTick preview · sent ${sel===0?'today (first run)':'1 '+MONTHS_L[m-1]+' at 7am'}</span>
       <p class="muted" style="font-size:calc(14.5px*var(--fs));margin:6px 0 10px">One task in your <b style="color:var(--ink)">Bonsai</b> list, due the end of the month. Tick items off as you get to them.</p>
       <div class="tt-task"><span class="tt-box"></span><div style="min-width:0;flex:1"><b>Bonsai jobs – ${MONTHS_L[m-1]} ${y}</b><span>Due ${new Date(y,m,0).getDate()} ${MONTHS[m-1]} · ${nItems} checklist item${nItems===1?'':'s'}</span>
-        <ul class="tt-list">${[...A.repots.map(t=>'Repot '+t.name), ...A.opens.map(o=>tickTitle(o)), ...A.coll].map(x=>`<li><span class="tt-box sm"></span>${esc(x)}</li>`).join('') || '<li class="muted">Nothing extra this month – routines continue</li>'}</ul>
+        <ul class="tt-list">${[...A.repots.map(t=>'Repot '+t.name), ...A.autumn.map(t=>'Autumn option: repot '+t.name+' (light root work)'), ...A.opens.map(o=>tickTitle(o)), ...A.coll].map(x=>`<li><span class="tt-box sm"></span>${esc(x)}</li>`).join('') || '<li class="muted">Nothing extra this month – routines continue</li>'}</ul>
         <span style="display:block;margin-top:8px">Notes: this month's advice (${(TIPS[m]||[]).map(x=>esc(x.t.toLowerCase())).join(', ')})</span></div></div>
     </div>
   </div>`;
 }
 function viewSeason(){
-  const groups = Object.entries(GUIDE).filter(([k])=>k!=='other' && TREES.some(t=>t.status!=='past'&&t.group===k));
+  const live = k => TREES.filter(t=>t.status!=='past'&&t.group===k);
   return header() + viewAhead() + `<div class="section-h"><div><span class="eyebrow">Brisbane · from your calendar &amp; Red Dragon</span><h2>Season calendar</h2></div></div>
   <div class="section-h" style="margin-top:14px"><h2 style="font-size:calc(19px*var(--fs))">Collection routines</h2></div>
   <div class="more-list">${ROUTINES.map(r=>{const nx=routineDates(r,TODAY.getFullYear(),NOW_M).find(d=>d>=new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()))||routineDates(r,...addMonths(TODAY.getFullYear(),NOW_M,1))[0]; return `<button>${ico(r.icon)}<div>${esc(r.name)}<span>${esc(r.every)} · next Sat ${nx?nx.getDate()+' '+MONTHS[nx.getMonth()]:''} · in TickTick</span></div></button>`;}).join('')}</div>
-  ${groups.map(([k,g])=>{ const ids=TREES.filter(t=>t.status!=='past'&&t.group===k).map(t=>t.id); return `<div class="section-h"><h2 style="font-size:calc(20px*var(--fs))">${esc(g.name)} <span class="muted num" style="font-family:var(--body);font-size:calc(15px*var(--fs));font-weight:400">${ids.length} tree${ids.length>1?'s':''} · repot every ${g.every} yrs${k==='pine'?' (3–5 for the oldest)':''}</span></h2></div>${calTable(g.rows, myRepotMonths(ids))}`; }).join('')}`;
+  ${CALS.map(c=>{ const keys=c.species.filter(k=>live(k).length); if(!keys.length) return ''; const ids=keys.flatMap(k=>live(k).map(t=>t.id)); const azAfter=keys.includes('azalea') && live('azalea').some(t=>t.azTiming==='after');
+    const sel = (S.calSp||{})[c.id]; const sp = sel && keys.includes(sel) ? sel : null;
+    const rows = sp ? {...GUIDE[sp].rows, ...(sp==='azalea'&&azAfter?{repot:[...new Set([...GUIDE.azalea.rows.repot, ...AZ_AFTER])]}:{})} : mergedRows(keys).filter(r=>r.k==='repot'||r.k==='autumn');
+    const ids2 = sp ? live(sp).map(t=>t.id) : ids;
+    return `<div class="section-h"><h2 style="font-size:calc(20px*var(--fs))">${esc(c.name)} <span class="muted num" style="font-family:var(--body);font-size:calc(15px*var(--fs));font-weight:400">${ids.length} tree${ids.length>1?'s':''}</span></h2></div><p class="muted" style="margin:-4px 0 10px;font-size:calc(15px*var(--fs))">${esc(c.blurb)}${keys.includes('azalea')?' Azaleas: '+(azAfter?'some are set to repot after flowering (Oct–Nov).':'repotting before flowering means pinching off that spring\'s flowers; switch a tree to after-flowering on its edit screen.'):''}</p>
+    ${keys.length>1?`<div class="chips" role="group" aria-label="${esc(c.name)} species"><button class="chip" data-calsp="${c.id}:" aria-pressed="${!sp}">Repot timing</button>${keys.map(k=>`<button class="chip" data-calsp="${c.id}:${k}" aria-pressed="${sp===k}">${esc(GUIDE[k].name)} <span class="num muted">${live(k).length}</span></button>`).join('')}</div>`:''}
+    ${keys.length===1 ? calTable(GUIDE[keys[0]].rows, myRepotMonths(ids)) : calTable(rows, myRepotMonths(ids2))}
+    ${sp?`<p class="muted" style="font-size:calc(14px*var(--fs));margin:6px 0 0">Repot every ${GUIDE[sp].every} years${sp==='pine'?' (3–5 for the oldest)':''}.</p>`:''}`;}).join('')}
+  <p class="muted" style="font-size:calc(14px*var(--fs))">The faint bars are the optional autumn window: urgent or overdue repots and second-flush pines, light root work only. Flag a tree for it on its edit screen.</p>`;
 }
 
 function viewHistory(){
@@ -559,6 +592,8 @@ function editTree(id){
   openForm({ title: id?'Edit '+t.name:'Add a tree', value:{...t}, kind:'trees',
     fields:[{k:'name',label:'Name'},{k:'common',label:'Common name'},{k:'scientific',label:'Scientific name'},
       {k:'group',label:'Care group (sets season timing)',type:'select',options:[['pine','Black pine'],['elm','Chinese elm'],['juniper','Juniper'],['fig','Fig'],['cler','Clerodendrum'],['swamp','Swamp cypress'],['podo','Buddhist pine'],['mela','Melaleuca'],['bougie','Bougainvillea'],['azalea','Azalea'],['african','Jaboticaba'],['other','Other']]},
+      ...(t.group==='azalea'?[{k:'azTiming',label:'Azalea repot timing',type:'select',options:[['','Before flowering, Jul–Aug (pinch off flowers)'],['after','After flowering, Oct–Nov']]}]:[]),
+      {k:'autumn',label:'Autumn repot flag',type:'select',options:[['','Not flagged'],['yes','Remind me in the autumn window (Mar–May)']]},
       {k:'style',label:'Style'},{k:'stage',label:'Development',type:'select',options:[['',''],['Early development','Early development'],['Mid development','Mid development'],['Refinement','Refinement']]},
       {k:'plantDate',label:'Plant date',type:'date'},{k:'acquired',label:'Date acquired',type:'date'},{k:'source',label:'Source'},
       {k:'price',label:'Purchase price ($)',type:'number'},{k:'value',label:'Value ($)',type:'number'},{k:'height',label:'Height (cm)',type:'number'},{k:'trunk',label:'Trunk width (cm)',type:'number'},
@@ -646,7 +681,7 @@ async function openLightbox(id){
   if(p.driveId && navigator.onLine){ try{ const u = await fileUrl(p.driveId); const img=lb.querySelector('img'); if(img) img.src=u; }catch(err){ /* thumbnail is fine */ } }
 }
 document.addEventListener('click', async e=>{
-  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],.lightbox');
+  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],.lightbox');
   if(!c) return;
   const d = c.dataset;
   if(c.classList.contains('lightbox')){ c.remove(); return; }
@@ -687,6 +722,7 @@ document.addEventListener('click', async e=>{
   if('fs' in d){ setTextSize(d.fs); render(); return; }
   if('layout' in d){ S.layout=d.layout; try{localStorage.setItem('gt-layout',S.layout);}catch(err){} render(); return; }
   if('ahead' in d){ S.ahead=+d.ahead; render(); return; }
+  if('calsp' in d){ const [ci,k]=d.calsp.split(':'); S.calSp={...(S.calSp||{}), [ci]:k}; render(); return; }
   if('tick' in d){ const l=LOGS.find(x=>x.id===d.tick); const flags=(l.flags||[]).filter(f=>!['tick','bulk','confirmed'].includes(f)).concat(d.val==='tick'?['tick']:['confirmed']); setLogFlags(d.tick, flags); return; }
   if('log' in d){ openLog(d.log||null); return; }
   if('zoom' in d){ openLightbox(d.zoom); return; }
