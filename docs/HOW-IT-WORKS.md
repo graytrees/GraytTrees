@@ -52,3 +52,8 @@ Testing without the real cloud: `npm run test:ui` runs the app against an in-mem
 - GitHub: two-factor on; recovery codes in Bitwarden.
 - Google account: already Nathan's main account.
 - Once a year: glance at Firebase console → Usage, and check Drive storage space.
+
+## Library (More › Library)
+- Your bonsai books live in the `books` collection alongside the trees, so they're in the weekly backup too. The first 100 came from Handy Library (`graytrees-library.json`, imported via More › Import; re-importing never overwrites a book you've edited).
+- Each book can be starred as a key book and can carry page photos (contents, index, key chapters). Page photos go to GraytTrees/Photos on Drive like any other photo.
+- "Do I own it?" scans a barcode with the phone camera (Android Chrome) or takes a typed ISBN/title. Unknown ISBNs are looked up on Open Library so you can add the book in one tap.

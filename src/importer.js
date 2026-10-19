@@ -9,13 +9,15 @@ export async function runImport(jsonFile, zipFiles, progress) {
   const data = JSON.parse(await jsonFile.text());
   const say = (msg, a, b) => progress?.(msg, a, b);
 
+  const newBooks = (data.books || []).filter(b => !state.books.some(x => x.id === b.id)); // never overwrite books you've since edited
+  if (newBooks.length) { say('Saving your library…'); await bulkWrite('books', newBooks, (a, b) => say('Saving your library…', a, b)); }
   say('Saving trees, pots and mixes…');
-  await bulkWrite('trees', data.trees);
+  await bulkWrite('trees', data.trees || []);
   await bulkWrite('pots', data.pots || []);
   await bulkWrite('mixes', data.mixes || []);
   if (data.meta) await bulkWrite('meta', data.meta);
   say('Saving history…');
-  await bulkWrite('logs', data.logs, (a, b) => say('Saving history…', a, b));
+  await bulkWrite('logs', data.logs || [], (a, b) => say('Saving history…', a, b));
 
   // Photos from the zip → thumbnail with the records + full size to Drive
   const zips = [];
@@ -40,5 +42,5 @@ export async function runImport(jsonFile, zipFiles, progress) {
     } catch (e) { failed++; console.warn('photo', p.id, e); }
     say('Photos', done, list.length);
   }
-  return { trees: data.trees.length, logs: data.logs.length, photos: list.length - failed, failed };
+  return { books: (data.books || []).length, trees: (data.trees || []).length, logs: (data.logs || []).length, photos: list.length - failed, failed };
 }

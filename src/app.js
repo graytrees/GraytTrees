@@ -456,6 +456,7 @@ function viewReview(){
 }
 function viewMore(){
   return header() + `<div class="section-h"><h2>More</h2></div><div class="more-list">
+    <button data-nav="library">${ico('book')}<div>Library<span>${BOOKS().length?BOOKS().length+' books · do I own it? barcode check':'Your bonsai books'}</span></div></button>
     <button data-nav="pots">${ico('pot')}<div>Pots<span>${D.pots.length} recorded</span></div></button>
     <button data-nav="mixes">${ico('mix')}<div>Soil mixes<span>Recipes and a pot volume calculator</span></div></button>
     <button data-nav="past">${ico('archive')}<div>Past trees<span>${TREES.filter(t=>t.status==='past').length} trees from 2003 onwards</span></div></button>
@@ -540,6 +541,7 @@ function viewImport(){
   return header() + `<div class="section-h"><div><span class="eyebrow">One-time setup</span><h2>Import my records</h2></div></div>
   <div class="card" style="padding:16px;display:grid;gap:14px">
     <p style="margin:0">Choose the two files Claude sent you: <b>graytrees-import.json</b> (records) and the photo files <b>graytrees-photos-1.zip</b> and <b>graytrees-photos-2.zip</b> (select both together). Photos are uploaded to your Google Drive, so do this on Wi-Fi; it takes a few minutes.</p>
+    <p style="margin:0" class="muted">Library: choose <b>graytrees-library.json</b> as the records file and leave the photos empty. Books already in your library are left as they are.</p>
     <label class="field"><span class="eyebrow">Records file (.json)</span><input type="file" id="impJson" accept=".json,application/json"></label>
     <label class="field"><span class="eyebrow">Photos (.zip – choose both)</span><input type="file" id="impZip" multiple accept=".zip,application/zip"></label>
     <button class="btn" data-runimport>${ico('archive')}Start import</button>
@@ -687,13 +689,164 @@ function editEntry(id){
     onSave: async v => { if(!v.actions.length) return 'Pick at least one job.'; await editLog(id, {date:v.date, actions:v.actions, text:v.text}); toast('Entry updated'); render(); }});
 }
 
+/* --- Library: your bonsai books (replaces Handy Library) --- */
+const BOOKS = () => (state.books||[]).filter(b=>!b.deleted);
+const isbnDigits = s => String(s||'').toUpperCase().replace(/[^0-9X]/g,'');
+function isbn13(s){
+  const d = isbnDigits(s);
+  if(d.length===13) return d;
+  if(d.length!==10) return null;
+  const core = '978'+d.slice(0,9);
+  const sum = [...core].reduce((a,c,i)=>a+(+c)*(i%2?3:1),0);
+  return core + ((10 - sum%10)%10);
+}
+const authorName = a => { const [l,f] = String(a).split(',').map(x=>x.trim()); return f ? `${f} ${l}` : l; };
+const authorsTxt = b => (b.authors||[]).map(authorName).join(', ');
+function bookCover(b, cls='bk-cover'){
+  const src = b.cover || b.coverUrl;
+  const ph = `<div class="${cls} bk-ph"><span>${esc(b.title)}</span></div>`;
+  return src ? `<img class="${cls}" src="${esc(src)}" alt="" loading="lazy" onerror="this.outerHTML=this.dataset.ph" data-ph="${esc(ph)}">` : ph;
+}
+function viewLibrary(){
+  const all = BOOKS();
+  const q = (S.q||'').toLowerCase().trim(), f = S.bkf||'all';
+  let list = all.filter(b=>f==='all'||(f==='key'&&b.key)||(f==='pages'&&(b.photos||[]).length));
+  if(q){ const qi = isbnDigits(q); list = list.filter(b=>[b.title,b.subtitle,authorsTxt(b),b.publisher,b.notes].join(' ').toLowerCase().includes(q) || (qi.length>=4 && [b.isbn,b.isbn13].some(x=>isbnDigits(x).includes(qi)))); }
+  const by = S.bksort||'title';
+  const key = b => by==='author' ? (b.authors||[''])[0].toLowerCase() : by==='year' ? String(9999-(+b.year||0)) : b.title.replace(/^(the|a)\s+/i,'').toLowerCase();
+  list.sort((a,b)=>key(a).localeCompare(key(b)) || a.title.localeCompare(b.title));
+  const nKey = all.filter(b=>b.key).length, nPg = all.filter(b=>(b.photos||[]).length).length;
+  return header('Search title, author or ISBN…') + `<div class="section-h"><div><span class="eyebrow">${all.length} books</span><h2>Library</h2></div>
+    <div class="row" style="gap:8px"><button class="btn small" data-bkcheck>${ico('barcode')}Do I own it?</button><button class="btn ghost small" data-editbook="">${ico('plus')}Add</button></div></div>
+  ${all.length?'':`<div class="card" style="padding:16px;margin-bottom:12px"><p style="margin-top:0">Your library is empty. Import <b>graytrees-library.json</b> (the 100 books from Handy Library) under More › Import, or add books one at a time.</p><button class="btn" data-nav="import">${ico('archive')}Import my library</button></div>`}
+  <div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <div class="chips">${[['all','All',all.length],['key','Key books',nKey],['pages','With page photos',nPg]].map(([k,l,n])=>`<button class="chip" data-bkf="${k}" aria-pressed="${f===k}">${k==='key'?ico('star'):''}${l} <span class="count muted">${n}</span></button>`).join('')}</div>
+    <label class="row" style="gap:6px;font-size:calc(14px*var(--fs))"><span class="muted">Sort</span><select id="bksort">${[['title','Title'],['author','Author'],['year','Newest']].map(([k,l])=>`<option value="${k}"${by===k?' selected':''}>${l}</option>`).join('')}</select></label>
+  </div>
+  <div class="shelf">${list.map(b=>`<button class="bk" data-book="${esc(b.id)}">${bookCover(b)}${b.key?`<span class="bk-key" title="Key book">${ico('star')}</span>`:''}
+    <b>${esc(b.title)}</b><span>${esc(authorsTxt(b))}${b.year?' · '+esc(b.year):''}</span></button>`).join('') || (all.length?'<div class="empty">No books match.</div>':'')}</div>`;
+}
+function viewBook(){
+  const b = BOOKS().find(x=>x.id===S.book); if(!b) return go('library');
+  const pg = (b.photos||[]).filter(id=>PH[id]);
+  const facts = [b.publisher, b.year, b.pages?b.pages+' pages':'' ].filter(Boolean).map(esc).join(' · ');
+  return header('Search title, author or ISBN…') + `<button class="btn ghost small" data-nav="library" style="margin-bottom:10px">${ico('back')}Library</button>
+  <div class="bk-head">${bookCover(b,'bk-big')}
+    <div style="min-width:0"><h2 style="margin:0 0 4px">${esc(b.title)}</h2>${b.subtitle?`<p class="muted" style="margin:0 0 6px">${esc(b.subtitle)}</p>`:''}
+      <p style="margin:0 0 6px;font-weight:600">${esc(authorsTxt(b))||'<span class="muted">Author not recorded</span>'}</p>
+      ${facts?`<p class="muted" style="margin:0 0 6px">${facts}</p>`:''}
+      ${b.isbn13||b.isbn?`<p class="muted num" style="margin:0 0 10px">ISBN ${esc(b.isbn13||b.isbn)}</p>`:''}
+      <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small ${b.key?'':'ghost'}" data-bkkey="${esc(b.id)}" aria-pressed="${!!b.key}">${ico('star')}${b.key?'Key book':'Mark as key book'}</button>
+      <button class="btn ghost small" data-editbook="${esc(b.id)}">${ico('brush')}Edit</button></div>
+    </div></div>
+  ${b.notes?`<div class="section-h"><h2 style="font-size:calc(20px*var(--fs))">My notes</h2></div><div class="card" style="padding:14px 16px;white-space:pre-wrap">${esc(b.notes)}</div>`:''}
+  <div class="section-h"><div><span class="eyebrow">Contents, index, key chapters</span><h2 style="font-size:calc(20px*var(--fs))">Page photos</h2></div>
+    <label class="btn small">${ico('cam')}Add pages<input type="file" accept="image/*" multiple hidden data-bookphoto="${esc(b.id)}"></label></div>
+  ${pg.length?`<div class="pgrid pages">${pg.map((id,i)=>`<figure><img src="${PH[id].src}" alt="Page photo ${i+1}" loading="lazy" data-zoom="${id}"><figcaption class="num">Page photo ${i+1}</figcaption></figure>`).join('')}</div>
+    <p class="muted" style="font-size:calc(14px*var(--fs))">Tap a page to read it full size (needs signal the first time).</p>`
+   :`<div class="empty">No pages yet. Photograph the contents and index first; they make the book searchable later.</div>`}
+  ${b.summary?`<div class="section-h"><h2 style="font-size:calc(20px*var(--fs))">About this book</h2></div><div class="card muted" style="padding:14px 16px;font-size:calc(15px*var(--fs));white-space:pre-line">${esc(b.summary)}</div>`:''}
+  <p class="muted" style="font-size:calc(13.5px*var(--fs));margin-top:18px">${esc(b.source||'Added in GraytTrees')}${b.location?' · '+esc(b.location):''}</p>`;
+}
+function editBook(id, pre){
+  const b = id ? BOOKS().find(x=>x.id===id) : {authors:[], photos:[], key:false, ...(pre||{})};
+  openForm({ title: id?'Edit book':'Add a book', value:{...b, authors:(b.authors||[]).join('; '), key:b.key?'yes':''},
+    fields:[{k:'title',label:'Title'},{k:'subtitle',label:'Subtitle'},{k:'authors',label:'Author(s) – Surname, First; separate with ;'},
+      {k:'publisher',label:'Publisher'},{k:'year',label:'Year'},{k:'pages',label:'Pages',type:'number'},{k:'isbn',label:'ISBN'},
+      {k:'key',label:'Key book?',type:'select',options:[['','No'],['yes','Yes – one of my key references']]},
+      {k:'notes',label:'My notes',type:'textarea'}],
+    danger: id?`<button class="btn ghost small" data-delbook="${esc(id)}">${ico('x')}Remove from library</button>`:'',
+    onSave: async v => {
+      if(!v.title) return 'Add the title.';
+      const i13 = isbn13(v.isbn);
+      if(i13 && BOOKS().some(x=>x.id!==id && (x.isbn13===i13))) return 'A book with that ISBN is already in your library.';
+      const rec = {...v, authors:String(v.authors||'').split(';').map(x=>x.trim()).filter(Boolean), key:v.key==='yes', isbn13:i13||v.isbn13||null};
+      if(!id){ rec.id = i13 && !BOOKS().some(x=>x.id==='b'+i13) ? 'b'+i13 : newId('b'); rec.source='Added in GraytTrees'; }
+      const nid = await saveRecord('books', rec); S.book=nid; go('book'); toast('Book saved'); }});
+}
+/* "Do I own it?" – scan a barcode or type an ISBN while shopping */
+const BK = {stream:null, timer:0, msg:'', result:null};
+function stopScan(){ clearInterval(BK.timer); BK.timer=0; BK.stream?.getTracks().forEach(t=>t.stop()); BK.stream=null; }
+function openBookCheck(){ BK.msg=''; BK.result=null; renderBookCheck(); }
+function renderBookCheck(){
+  const live = 'BarcodeDetector' in window && navigator.mediaDevices?.getUserMedia;
+  const r = BK.result;
+  $('#layer').innerHTML = `<div class="scrim" data-close><div class="sheet bkcheck" role="dialog" aria-modal="true" aria-label="Do I own this book?">
+    <div class="row" style="justify-content:space-between"><h2>Do I own it?</h2><button class="btn ghost small" data-close aria-label="Close">${ico('x')}</button></div>
+    <p class="muted" style="margin-top:0;font-size:calc(14.5px*var(--fs))">Scan the barcode on the back cover, or type the ISBN or part of the title.</p>
+    ${live?`<div class="scanbox"><video id="bkvid" playsinline muted></video><i></i></div>
+      <div class="row" style="gap:8px;margin:10px 0"><button class="btn" data-bkscan>${ico('barcode')}${BK.stream?'Scanning…':'Scan barcode'}</button></div>`
+     :`<label class="btn" style="margin-bottom:10px">${ico('cam')}Photograph the barcode<input type="file" accept="image/*" capture="environment" hidden id="bkphoto"></label>`}
+    <form class="row" style="gap:8px;flex-wrap:nowrap" data-bkform><input id="bkq" type="search" placeholder="ISBN or title" style="flex:1" value="${esc(BK.q||'')}" aria-label="ISBN or title"><button class="btn ghost" type="submit">${ico('search')}Check</button></form>
+    <div id="bkres" role="status" style="margin-top:14px">${BK.msg?`<p class="muted">${esc(BK.msg)}</p>`:''}${r?bookCheckResult(r):''}</div>
+  </div></div>`;
+  if(BK.stream){ const v=$('#bkvid'); v.srcObject=BK.stream; v.play().catch(()=>{}); }
+}
+function bookCheckResult(r){
+  if(r.own.length) return `<div class="bk-own yes">${ico('check')}<b>Yes, you own ${r.own.length>1?'these':'this'}</b></div>`+r.own.slice(0,6).map(b=>`<button class="bk-row" data-book="${esc(b.id)}">${bookCover(b,'bk-mini')}<span><b>${esc(b.title)}</b><span class="muted">${esc(authorsTxt(b))}${b.year?' · '+esc(b.year):''}</span></span></button>`).join('')
+    + (r.alt?`<p class="muted" style="font-size:calc(14px*var(--fs))">Same title, different edition or ISBN – check the year before buying.</p>`:'');
+  const f = r.found;
+  return `<div class="bk-own no">${ico('x')}<b>Not in your library</b></div>
+    ${f?`<div class="bk-row" style="cursor:default">${f.coverUrl?`<img class="bk-mini" src="${esc(f.coverUrl)}" alt="" onerror="this.remove()">`:''}<span><b>${esc(f.title)}</b><span class="muted">${esc((f.authors||[]).map(authorName).join(', '))}${f.year?' · '+esc(f.year):''}</span></span></div>`
+       :r.isbn?`<p class="muted" style="font-size:calc(14px*var(--fs))">ISBN ${esc(r.isbn)}${r.looked?' – no details found online.':''}</p>`:''}
+    ${r.isbn?`<button class="btn small" data-bkadd>${ico('plus')}Add to my library</button>`:''}`;
+}
+async function checkBook(raw){
+  const q = String(raw||'').trim(); BK.q=q; if(!q) return;
+  const i13 = isbn13(q), all = BOOKS();
+  let own = [], alt = false, found = null;
+  if(i13){
+    own = all.filter(b=>b.isbn13===i13 || isbn13(b.isbn)===i13);
+    BK.result = {isbn:i13, own, found:null}; BK.msg = own.length?'':'Looking it up…'; renderBookCheck();
+    if(!own.length){
+      try{
+        const ac = new AbortController(); setTimeout(()=>ac.abort(), 7000);
+        const j = await (await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${i13}&format=json&jscmd=data`, {signal:ac.signal})).json();
+        const d = j['ISBN:'+i13];
+        if(d) found = {title:d.title, subtitle:d.subtitle||'', authors:(d.authors||[]).map(a=>{ const p=a.name.trim().split(' '); return p.length>1?p.pop()+', '+p.join(' '):a.name; }), publisher:d.publishers?.[0]?.name||'', year:(d.publish_date||'').match(/\d{4}/)?.[0]||'', pages:d.number_of_pages||null, coverUrl:d.cover?.medium||d.cover?.large||''};
+      }catch(err){ /* offline or not found */ }
+      if(found){ const t = found.title.toLowerCase().slice(0,24); own = all.filter(b=>b.title.toLowerCase().startsWith(t)); alt = own.length>0; }
+      BK.result = {isbn:i13, own, alt, found, looked:true}; BK.msg='';
+    }
+  } else {
+    const ql = q.toLowerCase();
+    own = all.filter(b=>[b.title,b.subtitle,authorsTxt(b)].join(' ').toLowerCase().includes(ql));
+    BK.result = {isbn:null, own, found:null}; BK.msg='';
+  }
+  renderBookCheck();
+}
+async function startScan(){
+  if(BK.stream){ stopScan(); renderBookCheck(); return; }
+  try{
+    const det = new BarcodeDetector({formats:['ean_13','ean_8','upc_a','code_128']});
+    BK.stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment', width:{ideal:1280}}});
+    BK.msg='Hold the barcode inside the box.'; BK.result=null; renderBookCheck();
+    BK.timer = setInterval(async ()=>{
+      const v = $('#bkvid'); if(!v){ stopScan(); return; }
+      if(v.readyState<2) return;
+      try{ const codes = await det.detect(v); const c = codes.find(x=>isbn13(x.rawValue) && /^97[89]/.test(isbn13(x.rawValue))) || codes[0];
+        if(c){ stopScan(); navigator.vibrate?.(60); checkBook(c.rawValue); } }catch(err){ /* keep trying */ }
+    }, 250);
+  }catch(err){ stopScan(); BK.msg='Camera not available: '+err.message+'. Type the ISBN instead.'; renderBookCheck(); }
+}
+async function scanPhoto(file){
+  BK.msg='Reading the barcode…'; renderBookCheck();
+  try{
+    if(!('BarcodeDetector' in window)) throw new Error('this browser can’t read barcodes');
+    const bmp = await createImageBitmap(file);
+    const codes = await new BarcodeDetector({formats:['ean_13','ean_8','upc_a']}).detect(bmp);
+    if(!codes.length) throw new Error('no barcode found in the photo');
+    checkBook(codes[0].rawValue);
+  }catch(err){ BK.msg='Couldn’t read it ('+err.message+'). Type the 13-digit number under the barcode instead.'; renderBookCheck(); }
+}
+
 /* --- render + events --- */
-const VIEWS = {trees:()=>viewTrees(false), past:()=>viewTrees(true), tree:viewTree, season:viewSeason, history:viewHistory, mixes:viewMixes, pots:viewPots, review:viewReview, more:viewMore, recycle:viewRecycle, settings:viewSettings, import:viewImport, how:viewHow};
+const VIEWS = {trees:()=>viewTrees(false), past:()=>viewTrees(true), tree:viewTree, season:viewSeason, history:viewHistory, mixes:viewMixes, pots:viewPots, review:viewReview, more:viewMore, recycle:viewRecycle, settings:viewSettings, import:viewImport, how:viewHow, library:viewLibrary, book:viewBook};
 export function render(){
   const v = VIEWS[S.view] || VIEWS.trees;
   $('#main').innerHTML = v();
   const navKey = S.view==='tree' ? (byId[S.tree]?.status==='past'?'past':'trees') : S.view;
-  document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.dataset.nav==='more' && ['pots','mixes','past','review','more','recycle','settings','import','how'].includes(navKey))) ? 'page':'false'); });
+  document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.dataset.nav==='more' && ['pots','mixes','past','review','more','recycle','settings','import','how','library','book'].includes(navKey))) ? 'page':'false'); });
   if(document.querySelector('.cmp-stage')) upgradeCmp();
   if(S.view==='settings') pendingCount().then(n=>{ const el=$('#pendingInfo'); if(el) el.textContent = n ? `${n} photo${n>1?'s':''} waiting to upload` : ''; });
 }
@@ -714,7 +867,7 @@ export function refresh(){ if(S.view==='import'&&S.importing) return; cancelAnim
 
 let qTimer;
 document.addEventListener('input', e=>{
-  if(e.target.id==='q'){ clearTimeout(qTimer); const pos=e.target.selectionStart; qTimer=setTimeout(()=>{ S.q=e.target.value; render(); const q=$('#q'); if(q){q.focus(); q.setSelectionRange(pos,pos);} },180); }
+  if(e.target.id==='q'){ clearTimeout(qTimer); const pos=e.target.selectionStart; qTimer=setTimeout(()=>{ S.q=e.target.value; if(S.view==='book') S.view='library'; render(); const q=$('#q'); if(q){q.focus(); q.setSelectionRange(pos,pos);} },180); }
   if(e.target.matches('[data-cmpx]')){ e.target.closest('.cmp').querySelector('.cmp-stage').style.setProperty('--x', e.target.value+'%'); return; }
   if(e.target.id==='lgnote') LG.note=e.target.value;
   if(e.target.dataset.jlabel){ JOBS[+e.target.dataset.jlabel].label=e.target.value||'Untitled job'; saveJobs(); }
@@ -732,6 +885,12 @@ document.addEventListener('change', async e=>{
     const tid=e.target.dataset.addphoto, files=[...e.target.files]; toast(`Saving ${files.length} photo${files.length>1?'s':''}…`);
     try{ const ids = await addPhotos(files, {trees:[tid]}); await setTreePhotos(tid, [...ids, ...(byId[tid]?.photos||[])]); toast(`Added ${ids.length} photo${ids.length>1?'s':''}`); }catch(err){ toast('Could not add photo: '+err.message); }
   }
+  if(e.target.id==='bksort'){ S.bksort=e.target.value; render(); }
+  if(e.target.id==='bkphoto' && e.target.files[0]) scanPhoto(e.target.files[0]);
+  if(e.target.dataset.bookphoto){
+    const bid=e.target.dataset.bookphoto, files=[...e.target.files]; toast(`Saving ${files.length} page${files.length>1?'s':''}…`);
+    try{ const ids = await addPhotos(files, {origin:'Library'}); const b=BOOKS().find(x=>x.id===bid); await saveRecord('books', {...b, photos:[...(b.photos||[]), ...ids]}); toast(`Added ${ids.length} page${ids.length>1?'s':''}`); }catch(err){ toast('Could not add pages: '+err.message); }
+  }
   if(e.target.dataset.potphoto){
     const pid=e.target.dataset.potphoto; const ids = await addPhotos([...e.target.files], {}); const p=D.pots.find(x=>x.id===pid); await saveRecord('pots', {...p, photos:[...ids, ...(p.photos||[])]}); toast('Photo added');
   }
@@ -744,11 +903,19 @@ async function openLightbox(id){
   if(p.driveId && navigator.onLine){ try{ const u = await fileUrl(p.driveId); const img=lb.querySelector('img'); if(img) img.src=u; }catch(err){ /* thumbnail is fine */ } }
 }
 document.addEventListener('click', async e=>{
-  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],.lightbox');
+  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],.lightbox');
   if(!c) return;
   const d = c.dataset;
   if(c.classList.contains('lightbox')){ c.remove(); return; }
-  if('close' in d){ if(e.target===c || c.tagName==='BUTTON'){ $('#layer').innerHTML=''; FORM=null; } return; }
+  if('close' in d){ if(e.target===c || c.tagName==='BUTTON'){ stopScan(); $('#layer').innerHTML=''; FORM=null; } return; }
+  if('book' in d){ stopScan(); $('#layer').innerHTML=''; FORM=null; S.q=''; S.book=d.book; go('book'); return; }
+  if('bkf' in d){ S.bkf=d.bkf; render(); return; }
+  if('bkcheck' in d){ openBookCheck(); return; }
+  if('bkscan' in d){ startScan(); return; }
+  if('bkadd' in d){ const r=BK.result; stopScan(); editBook(null, {...(r.found||{}), isbn:r.isbn}); return; }
+  if('editbook' in d){ editBook(d.editbook||null); return; }
+  if('bkkey' in d){ const b=BOOKS().find(x=>x.id===d.bkkey); await saveRecord('books', {...b, key:!b.key}); toast(b.key?'No longer a key book':'Marked as a key book'); return; }
+  if('delbook' in d){ const b=BOOKS().find(x=>x.id===d.delbook); await saveRecord('books', {...b, deleted:true, deletedMs:Date.now()}); $('#layer').innerHTML=''; FORM=null; go('library'); toast('Removed from library'); return; }
   if('fjob' in d){ const a=FORM.value.actions=FORM.value.actions||[]; const i=a.indexOf(d.fjob); i>=0?a.splice(i,1):a.push(d.fjob); c.setAttribute('aria-pressed', i<0); return; }
   if('ftree' in d){ const a=FORM.value.used=FORM.value.used||[]; const i=a.indexOf(d.ftree); i>=0?a.splice(i,1):a.push(d.ftree); c.setAttribute('aria-pressed', i<0); return; }
   if('fsave' in d){ const v=readForm(); if(FORM.value.actions) v.actions=FORM.value.actions; if(FORM.value.used) v.used=FORM.value.used; c.disabled=true; try{ const err=await FORM.onSave(v); if(err){ FORM.value=v; FORM.err=err; renderForm(); return; } $('#layer').innerHTML=''; FORM=null; }catch(err){ FORM.value=v; FORM.err='Could not save: '+err.message; renderForm(); } return; }
@@ -766,7 +933,7 @@ document.addEventListener('click', async e=>{
     if(!j){ out.textContent='Choose the records file (.json) first.'; out.style.color='var(--rust)'; return; }
     c.disabled=true; out.style.color=''; S.importing=true;
     try{ await getToken(true); }catch(err){ out.textContent='Google Drive permission is needed for the photos: '+err.message; c.disabled=false; return; }
-    try{ const r = await runImport(j, z, (msg,a,b)=>{ out.textContent = msg + (b?` ${a} of ${b}`:''); }); S.importResult=`Done: ${r.trees} trees, ${r.logs} history entries, ${r.photos} photos${r.failed?` (${r.failed} photos failed – run the import again to retry)`:''}.`; out.textContent=S.importResult; }
+    try{ const r = await runImport(j, z, (msg,a,b)=>{ out.textContent = msg + (b?` ${a} of ${b}`:''); }); S.importResult=`Done: ${r.books?r.books+' books, ':''}${r.trees} trees, ${r.logs} history entries, ${r.photos} photos${r.failed?` (${r.failed} photos failed – run the import again to retry)`:''}.`; out.textContent=S.importResult; }
     catch(err){ S.importResult='Import stopped: '+err.message+'. Run it again to continue.'; out.textContent=S.importResult; out.style.color='var(--rust)'; }
     S.importing=false; refresh(); c.disabled=false; return;
   }
@@ -806,7 +973,8 @@ document.addEventListener('click', async e=>{
   if('more' in d){ S.histLimit=(S.histLimit||60)+80; render(); return; }
   if('mix' in d){ S.mix=+d.mix; render(); return; }
 });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ $('#layer').innerHTML=''; FORM=null; document.querySelector('.lightbox')?.remove(); } });
+document.addEventListener('submit', e=>{ if(e.target.matches('[data-bkform]')){ e.preventDefault(); stopScan(); checkBook($('#bkq').value); } });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ stopScan(); $('#layer').innerHTML=''; FORM=null; document.querySelector('.lightbox')?.remove(); } });
 
 export function startApp(){
   sync(); render();
