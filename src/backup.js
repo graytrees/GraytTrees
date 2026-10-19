@@ -10,7 +10,12 @@ function csv(rows) {
   return rows.map(r => r.map(q).join(',')).join('\n');
 }
 
-export async function backupNow(interactive = false) {
+let running = null;  // one backup at a time: the start-up check and the 'back online' check can fire together
+export function backupNow(interactive = false) {
+  running ||= doBackup(interactive).finally(() => { running = null; });
+  return running;
+}
+async function doBackup(interactive) {
   const data = await exportAll();
   const day = (d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'))(new Date());
   await upload(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }), `graytrees-backup-${day}.json`, 'Backups', interactive);
@@ -27,5 +32,5 @@ export async function maybeWeeklyBackup() {
   if (!navigator.onLine || !driveConnected()) return null;
   const last = state.meta.backup?.lastMs || 0;
   if (Date.now() - last < WEEK) return null;
-  try { return await backupNow(false); } catch (e) { console.warn('backup deferred', e); return null; }
+  try { return await backupNow(false); } catch (e) { console.warn('backup deferred', e); state.meta.backupError = String(e.message || e); return null; }
 }
