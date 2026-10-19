@@ -20,7 +20,7 @@ const NOW_M = TODAY.getMonth() + 1;
 function localDay(d=new Date()){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 
 const ACT = {
-  prune:{label:'Light prune', icon:'scissors'}, hard:{label:'Hard prune', icon:'scissors'},
+  prune:{label:'Light prune', icon:'scissors'}, hard:{label:'Hard prune', icon:'cutter'},
   root:{label:'Root prune', icon:'roots'}, repot:{label:'Repot', icon:'pot'},
   wire:{label:'Wired', icon:'wire'}, unwire:{label:'Wire removed', icon:'wire'},
   style:{label:'Styled', icon:'brush'}, defol:{label:'Defoliated', icon:'leaf'},
@@ -32,7 +32,7 @@ Object.keys(ACT).forEach(k=>ACT[k].kind=k);
 ACT.fung.label='Mancozeb spray'; ACT.insect.label='Maverick spray';
 /* Jobs shown on the Log screen: editable (rename, hide, add your own, shortcuts). Saved with your records. */
 const KINDS = [['prune','Prune'],['hard','Hard prune'],['root','Root prune'],['repot','Repot'],['wire','Wire'],['unwire','Wire removed'],['defol','Defoliate'],['style','Styling'],['fert','Feed'],['fung','Fungicide'],['insect','Insecticide'],['note','Other / observation']];
-const KIND_ICON = {prune:'scissors',hard:'scissors',root:'roots',repot:'pot',wire:'wire',unwire:'wire',defol:'leaf',style:'brush',fert:'drop',fung:'shield',insect:'bug',note:'eye'};
+const KIND_ICON = {prune:'scissors',hard:'cutter',root:'roots',repot:'pot',wire:'wire',unwire:'wire',defol:'leaf',style:'brush',fert:'drop',fung:'shield',insect:'bug',note:'eye'};
 let JOBS = ['prune','hard','root','repot','wire','unwire','defol','style','fert','fung','insect','note'].map(id=>({id, label:ACT[id].label, kind:id, hidden:false}));
 let COMBOS = [{id:'cb1', label:'Repot + root prune', jobs:['repot','root']}, {id:'cb2', label:'Prune & wire', jobs:['prune','wire']}, {id:'cb3', label:'Full workover', jobs:['hard','root','repot']}];
 function applyJobs(){ JOBS.forEach(j=>{ ACT[j.id] = {label:j.label, icon:KIND_ICON[j.kind]||'eye', kind:j.kind}; }); }
@@ -338,7 +338,7 @@ function viewAhead(){
       <h3 style="font-size:calc(20px*var(--fs))">${MONTHS_L[m-1]} ${y}</h3>
       ${A.repots.length?`<span class="eyebrow" style="display:block;margin-top:12px">Repots due (${A.repots.length})</span>${A.repots.map(t=>{const l=lastOf(t.id,['repot']); return `<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${l?'Last repot '+fmtD(l.date,l.precision):'No repot on record'} · every ${evText(t)} yrs</span></span>${ico('pot')}</button>`;}).join('')}`:''}
       ${A.autumn.length?`<span class="eyebrow" style="display:block;margin-top:14px">Autumn repot option (${A.autumn.length}) · light root work only</span>${A.autumn.map(t=>{const l=lastOf(t.id,['repot']); return `<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${t.autumn==='yes'?'Flagged by you':'Overdue'}${l?' · last repot '+fmtD(l.date,l.precision):''}</span></span><span class="pill unc">Optional</span></button>`;}).join('')}`:''}
-      ${A.opens.length?`<span class="eyebrow" style="display:block;margin-top:14px">Seasons opening</span>${A.opens.map(o=>`<div class="due-item"><span class="ph" style="width:44px;height:44px;border-radius:10px;flex:none;background:${TASKS[o.task].c};color:#fff">${ico(o.task==='wire'?'wire':o.task==='defol'?'leaf':o.task==='potash'?'drop':o.task==='clean'?'brush':'scissors')}</span><span class="t"><b>${esc(tickTitle(o))}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${o.trees.map(t=>esc(t.name)).slice(0,4).join(', ')}${o.trees.length>4?' and '+(o.trees.length-4)+' more':''}</span></span></div>`).join('')}`:''}
+      ${A.opens.length?`<span class="eyebrow" style="display:block;margin-top:14px">Seasons opening</span>${A.opens.map(o=>`<div class="due-item"><span class="ph" style="width:44px;height:44px;border-radius:10px;flex:none;background:${TASKS[o.task].c};color:#fff">${ico(o.task==='wire'?'wire':o.task==='defol'?'leaf':o.task==='potash'?'drop':o.task==='clean'?'chop':o.task==='struct'?'cutter':'scissors')}</span><span class="t"><b>${esc(tickTitle(o))}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${o.trees.map(t=>esc(t.name)).slice(0,4).join(', ')}${o.trees.length>4?' and '+(o.trees.length-4)+' more':''}</span></span></div>`).join('')}`:''}
       ${A.coll.length?`<span class="eyebrow" style="display:block;margin-top:14px">Whole collection</span>${A.coll.map(c=>`<div class="due-item"><span class="ph" style="width:44px;height:44px;border-radius:10px;flex:none">${ico('tree')}</span><span class="t"><b>${esc(c)}</b></span></div>`).join('')}`:''}
       ${!nItems?'<p class="muted">Nothing new falls due this month. Routine feeding and spraying carry on.</p>':''}
       <span class="eyebrow" style="display:block;margin-top:14px">Already in your TickTick</span>
