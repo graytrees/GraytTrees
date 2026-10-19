@@ -120,7 +120,7 @@ function viewTrees(past=false){
   const histHits = S.q && !past ? LOGS.filter(l => l.text.toLowerCase().includes(S.q.toLowerCase())).slice(0,8) : [];
   return header() + (past?'':proto()) + (past ? `<div class="section-h"><div><span class="eyebrow">Kept for the record</span><h2>Past trees</h2></div><span class="muted num">${list.length}</span></div><p class="muted" style="margin-top:-6px">Trees that died, were given away or left bonsai. Their full history stays searchable.</p>` : `
   ${(()=>{ const b=state.meta.backup, days=b?.lastMs?Math.floor((Date.now()-b.lastMs)/864e5):null; return past||(days!==null&&days<=8) ? '' : `<div class="card" style="padding:12px 16px;margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:180px">${ico('archive')} <b>${days===null?'No backup yet':'Last backup '+days+' days ago'}</b><span class="muted" style="display:block;font-size:calc(14px*var(--fs))">The weekly backup to Drive hasn't run${state.meta.backupError?' ('+esc(state.meta.backupError)+')':''}.</span></span><button class="btn small" data-backup>${ico('archive')}Back up now</button></div>`; })()}
-  <section class="season" aria-label="This month">
+  <section class="season" aria-label="This month">${ukiyoBand()}
     <div><span class="eyebrow">${MONTHS_L[NOW_M-1]} in Brisbane · ${SEASONS.find(s=>s[1].includes(NOW_M))[0].toLowerCase()}</span>
       <h2 style="margin-top:4px">${due.length ? due.length+' tree'+(due.length>1?'s':'')+' ready to repot' : 'No trees need repotting yet'}</h2>
       ${due.length?'':`<p class="muted" style="margin:8px 0 0;font-size:calc(15px*var(--fs))">Each species has a repot interval (pines every 3 years, elms and figs every 2). None of your trees have reached theirs yet.</p>`}
@@ -228,6 +228,26 @@ function tabPhotos(t){
   return compareBlock(t, ps, dated) + `<div class="row" style="justify-content:space-between;margin-bottom:12px"><span class="muted num">${ps.length} photos</span>
     <label class="btn small">${ico('cam')}Add photo<input type="file" accept="image/*" multiple hidden data-addphoto="${t.id}"></label></div>
     ${ps.length?`<div class="pgrid">${ps.map(p=>`<figure><img src="${p.src}" alt="" loading="lazy" data-zoom="${p.id}"><figcaption class="num">${dated[p.id]?fmtD(dated[p.id]):(p.origin==='Bonsai Album'?'Bonsai Album':'Old plant list')}</figcaption></figure>`).join('')}</div>`:'<div class="empty">No photos yet.</div>'}`;
+}
+/* woodblock-style band: Prussian-blue Fuji over a seigaiha sea, with a Brisbane-season motif */
+function ukiyoBand(m=NOW_M){
+  const season = [12,1,2].includes(m)?'summer':[3,4,5].includes(m)?'autumn':[6,7,8].includes(m)?'winter':'spring';
+  const blossom = (x,y,r)=>[0,72,144,216,288].map(a=>`<circle cx="${(x+Math.cos(a*Math.PI/180)*r).toFixed(1)}" cy="${(y+Math.sin(a*Math.PI/180)*r).toFixed(1)}" r="${(r*0.75).toFixed(1)}"/>`).join('')+`<circle cx="${x}" cy="${y}" r="${(r*0.45).toFixed(1)}" fill="#F7E3A1"/>`;
+  const leaf = (x,y,s,rot)=>`<path transform="translate(${x} ${y}) rotate(${rot}) scale(${s})" d="M0 -10 L2.5 -3 L9 -5 L4.5 1 L7 7 L1 4 L0 10 L-1 4 L-7 7 L-4.5 1 L-9 -5 L-2.5 -3 Z"/>`;
+  const motif = {
+    spring:`<g fill="#E9A3B4">${blossom(70,22,4)}${blossom(112,40,3)}${blossom(160,18,3.5)}${blossom(236,30,2.6)}</g>`,
+    summer:`<circle cx="250" cy="26" r="13" fill="#C8412F"/>`,
+    autumn:`<g fill="#C8612F">${leaf(80,24,1,10)}${leaf(130,42,.8,-25)}${leaf(196,20,.9,40)}${leaf(250,36,.7,-10)}</g>`,
+    winter:`<g fill="#FFFFFF" opacity=".9">${[[60,14],[96,30],[140,12],[180,38],[222,20],[268,32],[318,12]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="1.8"/>`).join('')}</g>`}[season];
+  return `<div class="ukiyo" aria-hidden="true"><svg viewBox="0 0 600 76" preserveAspectRatio="xMidYMid slice" width="100%" height="100%">
+    <defs><pattern id="sgh" width="24" height="12" patternUnits="userSpaceOnUse"><g fill="var(--ukiyo-bg)" stroke="var(--prussian)" stroke-width=".9" opacity=".55">
+      <circle cx="0" cy="12" r="11"/><circle cx="0" cy="12" r="7"/><circle cx="0" cy="12" r="3"/><circle cx="24" cy="12" r="11"/><circle cx="24" cy="12" r="7"/><circle cx="24" cy="12" r="3"/>
+      <circle cx="12" cy="18" r="11"/><circle cx="12" cy="18" r="7"/><circle cx="12" cy="18" r="3"/></g></pattern></defs>
+    <rect width="600" height="76" fill="var(--ukiyo-bg)"/>${motif}
+    <path d="M330 76 L455 18 L479 18 L600 70 L600 76 Z" fill="var(--prussian)"/>
+    <path d="M436 27 L455 18 L479 18 L499 28 L488 26 L478 33 L469 25 L458 32 L449 26 Z" fill="#F7F4EC"/>
+    <rect y="56" width="600" height="20" fill="url(#sgh)"/>
+  </svg></div>`;
 }
 /* before / after comparison: oldest vs newest dated photo, either side changeable */
 function compareBlock(t, ps, dated){
@@ -340,7 +360,7 @@ function viewAhead(){
 }
 function viewSeason(){
   const live = k => TREES.filter(t=>t.status!=='past'&&t.group===k);
-  return header() + viewAhead() + `<div class="section-h"><div><span class="eyebrow">Brisbane · from your calendar &amp; Red Dragon</span><h2>Season calendar</h2></div></div>
+  return header() + `<div class="ukiyo-wrap">${ukiyoBand()}</div>` + viewAhead() + `<div class="section-h"><div><span class="eyebrow">Brisbane · from your calendar &amp; Red Dragon</span><h2>Season calendar</h2></div></div>
   <div class="section-h" style="margin-top:14px"><h2 style="font-size:calc(19px*var(--fs))">Collection routines</h2></div>
   <div class="more-list">${ROUTINES.map(r=>{const nx=routineDates(r,TODAY.getFullYear(),NOW_M).find(d=>d>=new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()))||routineDates(r,...addMonths(TODAY.getFullYear(),NOW_M,1))[0]; return `<button>${ico(r.icon)}<div>${esc(r.name)}<span>${esc(r.every)} · next Sat ${nx?nx.getDate()+' '+MONTHS[nx.getMonth()]:''} · in TickTick</span></div></button>`;}).join('')}</div>
   ${CALS.map(c=>{ const keys=c.species.filter(k=>live(k).length); if(!keys.length) return ''; const ids=keys.flatMap(k=>live(k).map(t=>t.id)); const azAfter=keys.includes('azalea') && live('azalea').some(t=>t.azTiming==='after');
