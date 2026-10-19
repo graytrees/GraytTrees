@@ -452,7 +452,58 @@ function viewMore(){
     <button data-nav="past">${ico('archive')}<div>Past trees<span>${TREES.filter(t=>t.status==='past').length} trees from 2003 onwards</span></div></button>
     <button data-nav="recycle">${ico('x')}<div>Recycle bin<span>${DELETED.length} deleted entr${DELETED.length===1?'y':'ies'} you can restore</span></div></button>
     <button data-nav="settings">${ico('shield')}<div>Settings &amp; backups<span>Text size · ${state.meta.backup?.lastDay?'Last backup '+fmtD(state.meta.backup.lastDay):'No backup yet'}</span></div></button>
+    <button data-nav="how">${ico('eye')}<div>How it works<span>Where everything lives, making changes, getting things back</span></div></button>
     <button data-nav="review">${ico('question')}<div>Import notes<span>What was merged and how</span></div></button>
+  </div>`;
+}
+/* "How it works" – visual maps of the setup (replaces reading docs/HOW-IT-WORKS.md) */
+function mnode(icon, title, sub, kind='', tap=''){
+  return `<div class="mnode ${kind}"${tap?` role="button" tabindex="0" data-nav="${tap}"`:''}><span class="mi">${ico(icon)}</span><span><b>${title}</b><span>${sub}</span></span></div>`;
+}
+const mdown = (label='') => `<div class="mdown" aria-hidden="true"><i></i>${label?`<em>${label}</em>`:''}</div>`;
+function viewHow(){
+  const b = state.meta.backup, last = b?.lastDay ? 'Last one '+fmtD(b.lastDay) : 'Not run yet';
+  const live = TREES.filter(t=>t.status!=='past').length;
+  return header() + `<div class="section-h"><div><span class="eyebrow">GraytTrees at a glance</span><h2>How it works</h2></div></div>
+  <div class="map card">
+    <h3>Where everything lives</h3>
+    ${mnode('tree','Your devices','Fold, Tab and laptop. Works offline in the shed; changes sync when back in range.','k-you')}
+    ${mdown()}
+    ${mnode('leaf','GraytTrees app','graytrees.github.io/GraytTrees · only your Google account can sign in','k-app')}
+    ${mdown('saves to')}
+    <div class="mrow">
+      ${mnode('archive','Records','Firebase (Sydney) · '+live+' trees, '+LOGS.length+' entries, pots, mixes','k-data')}
+      ${mnode('cam','Google Drive','GraytTrees folder · full-size photos and the weekly backup ('+last.replace('Last one','last one')+')','k-data','settings')}
+      ${mnode('bell','TickTick','Bonsai list · feeding and spray routines; monthly jobs checklist planned','k-data k-plan')}
+    </div>
+    ${mdown('copied by')}
+    ${mnode('shield','IDrive','Google Personal Backup · a second copy of your whole Google account, Drive included','k-data')}
+  </div>
+  <div class="map card">
+    <h3>Making a change</h3>
+    ${mnode('question','You describe it','Tell Claude what you want; a screenshot helps','k-you')}
+    ${mdown()}
+    ${mnode('brush','Claude edits the code','Kept in GitHub (graytrees/GraytTrees) with every earlier version','k-app')}
+    ${mdown('about 2 minutes')}
+    ${mnode('check','Live on your devices','Open the app and tap “Update available” to refresh','k-data')}
+    <p class="muted mnote">Anything that changes how records are stored: back up first (More › Settings &amp; backups › Back up now). A change can always be rolled back to an earlier version.</p>
+  </div>
+  <div class="map card">
+    <h3>If something goes wrong</h3>
+    <p class="muted mnote" style="margin-top:0">Start at the top and work down. Each step reaches further back.</p>
+    ${mnode('x','Deleted an entry?','Recycle bin – tap Restore. Nothing is lost.','k-step','recycle')}
+    ${mdown()}
+    ${mnode('history','Changed an entry by mistake?','Every edit keeps the earlier version with the entry','k-step')}
+    ${mdown()}
+    ${mnode('archive','Records damaged or missing?','Weekly backup in Drive › GraytTrees › Backups. JSON + a spreadsheet CSV, readable without the app.','k-step','settings')}
+    ${mdown()}
+    ${mnode('shield','Google Drive itself lost?','Restore from IDrive’s copy of your Google account','k-step')}
+    ${mdown()}
+    ${mnode('leaf','App broken after a change?','Ask Claude to republish the last good version from GitHub','k-step')}
+  </div>
+  <div class="map card">
+    <h3>Once a year</h3>
+    <p class="muted mnote" style="margin-top:0">Glance at Firebase usage (free tier) and Drive storage space. GitHub has two-factor on, with recovery codes in Bitwarden.</p>
   </div>`;
 }
 function viewRecycle(){
@@ -628,12 +679,12 @@ function editEntry(id){
 }
 
 /* --- render + events --- */
-const VIEWS = {trees:()=>viewTrees(false), past:()=>viewTrees(true), tree:viewTree, season:viewSeason, history:viewHistory, mixes:viewMixes, pots:viewPots, review:viewReview, more:viewMore, recycle:viewRecycle, settings:viewSettings, import:viewImport};
+const VIEWS = {trees:()=>viewTrees(false), past:()=>viewTrees(true), tree:viewTree, season:viewSeason, history:viewHistory, mixes:viewMixes, pots:viewPots, review:viewReview, more:viewMore, recycle:viewRecycle, settings:viewSettings, import:viewImport, how:viewHow};
 export function render(){
   const v = VIEWS[S.view] || VIEWS.trees;
   $('#main').innerHTML = v();
   const navKey = S.view==='tree' ? (byId[S.tree]?.status==='past'?'past':'trees') : S.view;
-  document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.dataset.nav==='more' && ['pots','mixes','past','review','more','recycle','settings','import'].includes(navKey))) ? 'page':'false'); });
+  document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.dataset.nav==='more' && ['pots','mixes','past','review','more','recycle','settings','import','how'].includes(navKey))) ? 'page':'false'); });
   if(S.view==='settings') pendingCount().then(n=>{ const el=$('#pendingInfo'); if(el) el.textContent = n ? `${n} photo${n>1?'s':''} waiting to upload` : ''; });
 }
 function sync(){

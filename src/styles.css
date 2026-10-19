@@ -320,3 +320,25 @@ button:disabled{opacity:.6;cursor:progress}
 
 .stack{display:flex;flex-direction:column;gap:10px}
 img.broken{visibility:hidden}
+
+/* How it works maps */
+.map{padding:16px;margin-bottom:14px}
+.map h3{font-size:calc(19px*var(--fs));margin:0 0 12px}
+.mnode{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--paper);max-width:560px;margin-inline:auto}
+.mnode .mi{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center}
+.mnode .mi .ico{width:20px;height:20px}
+.mnode b{display:block;font-size:calc(16px*var(--fs))}
+.mnode b+span{display:block;color:var(--muted);font-size:calc(14.5px*var(--fs));line-height:1.4;margin-top:2px}
+.mnode[data-nav]{cursor:pointer}
+.mnode.k-you{background:var(--stone)} .mnode.k-you .mi{background:var(--paper);color:var(--ink)}
+.mnode.k-app{background:var(--glaze-soft);border-color:var(--glaze)} .mnode.k-app .mi{background:var(--glaze);color:var(--glaze-ink)}
+.mnode.k-data{background:var(--moss-soft);border-color:var(--moss)} .mnode.k-data .mi{background:var(--moss);color:var(--paper)}
+.mnode.k-plan{border-style:dashed}
+.mnode.k-step{background:var(--wire-soft);border-color:var(--wire)} .mnode.k-step .mi{background:var(--wire);color:var(--paper)}
+.mdown{display:flex;flex-direction:column;align-items:center;margin:4px 0;color:var(--muted)}
+.mdown i{display:block;width:2px;height:18px;background:var(--line);position:relative}
+.mdown i::after{content:"";position:absolute;left:-5px;bottom:-2px;border:6px solid transparent;border-top-color:var(--line);border-bottom:0}
+.mdown em{font-style:normal;font-size:calc(13px*var(--fs));margin-top:4px}
+.mrow{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.mrow .mnode{max-width:none;margin:0}
+.mnote{font-size:calc(14.5px*var(--fs));margin:12px 0 0}

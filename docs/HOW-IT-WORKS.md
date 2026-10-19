@@ -41,7 +41,8 @@ Changes that alter how records are stored: take a backup first (More → Setting
 - `photos.js` – thumbnails, Drive upload, offline photo queue
 - `drive.js` – Google Drive access
 - `backup.js` – weekly backup
-- `importer.js` – one-time import of the merged old records
+- `importer.js` – one-time import of the merged old records (also used for top-up photo imports)
+- In the app: More › How it works shows this page as visual maps (where everything lives, making a change, getting things back)
 - `config.js` – Firebase project settings and owner email
 
 Testing without the real cloud: `npm run test:ui` runs the app against an in-memory stand-in (`test/mocks/`).
