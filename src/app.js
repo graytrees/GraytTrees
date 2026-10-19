@@ -633,7 +633,7 @@ export function render(){
   const v = VIEWS[S.view] || VIEWS.trees;
   $('#main').innerHTML = v();
   const navKey = S.view==='tree' ? (byId[S.tree]?.status==='past'?'past':'trees') : S.view;
-  document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.closest('.tabbar') && b.dataset.nav==='more' && ['pots','mixes','past','review','more','recycle','settings','import'].includes(navKey))) ? 'page':'false'); });
+  document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.dataset.nav==='more' && ['pots','mixes','past','review','more','recycle','settings','import'].includes(navKey))) ? 'page':'false'); });
   if(S.view==='settings') pendingCount().then(n=>{ const el=$('#pendingInfo'); if(el) el.textContent = n ? `${n} photo${n>1?'s':''} waiting to upload` : ''; });
 }
 function sync(){
