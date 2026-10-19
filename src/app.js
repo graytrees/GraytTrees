@@ -59,9 +59,9 @@ const GUIDE = {  /* timing from Nathan's monthly calendar, Red Dragon newsletter
 };
 /* the three season calendars (Oct 2026): grouped by what wakes each tree up */
 const CALS = [
-  {id:'exotic', name:'Exotics', blurb:'Northern-hemisphere trees. Repot mid-July to August: elms first, then junipers and pines.', species:['elm','juniper','pine','swamp','podo','azalea']},
+  {id:'exotic', name:'Exotics', blurb:'Northern-hemisphere trees. Repot mid-July to August: elms first, then junipers and pines.', species:['elm','juniper','pine','swamp','podo','azalea'], def:'pine'},
   {id:'native', name:'Natives', blurb:'Australian natives. Repot August to September, October at a stretch.', species:['mela']},
-  {id:'tropical', name:'Ficus & tropicals', blurb:'Repot mid-October to December, once nights stay above about 15°C. Never January.', species:['fig','cler','bougie','african']}
+  {id:'tropical', name:'Ficus & tropicals', blurb:'Repot mid-October to December, once nights stay above about 15°C. Never January.', species:['fig','cler','bougie','african'], def:'fig'}
 ];
 const calOf = g => CALS.find(c=>c.species.includes(g));
 const AZ_AFTER = [10,11];  /* azalea repotted straight after flowering */
@@ -354,7 +354,7 @@ function viewSeason(){
   <div class="section-h" style="margin-top:14px"><h2 style="font-size:calc(19px*var(--fs))">Collection routines</h2></div>
   <div class="more-list">${ROUTINES.map(r=>{const nx=routineDates(r,TODAY.getFullYear(),NOW_M).find(d=>d>=new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()))||routineDates(r,...addMonths(TODAY.getFullYear(),NOW_M,1))[0]; return `<button>${ico(r.icon)}<div>${esc(r.name)}<span>${esc(r.every)} · next Sat ${nx?nx.getDate()+' '+MONTHS[nx.getMonth()]:''} · in TickTick</span></div></button>`;}).join('')}</div>
   ${CALS.map(c=>{ const keys=c.species.filter(k=>live(k).length); if(!keys.length) return ''; const ids=keys.flatMap(k=>live(k).map(t=>t.id)); const azAfter=keys.includes('azalea') && live('azalea').some(t=>t.azTiming==='after');
-    const sel = (S.calSp||{})[c.id]; const sp = sel && keys.includes(sel) ? sel : null;
+    const cs = S.calSp||{}, sel = c.id in cs ? cs[c.id] : c.def; const sp = sel && keys.includes(sel) ? sel : null;
     const rows = sp ? {...GUIDE[sp].rows, ...(sp==='azalea'&&azAfter?{repot:[...new Set([...GUIDE.azalea.rows.repot, ...AZ_AFTER])]}:{})} : mergedRows(keys).filter(r=>r.k==='repot'||r.k==='autumn');
     const ids2 = sp ? live(sp).map(t=>t.id) : ids;
     return `<div class="section-h"><h2 style="font-size:calc(20px*var(--fs))">${esc(c.name)} <span class="muted num" style="font-family:var(--body);font-size:calc(15px*var(--fs));font-weight:400">${ids.length} tree${ids.length>1?'s':''}</span></h2></div><p class="muted" style="margin:-4px 0 10px;font-size:calc(15px*var(--fs))">${esc(c.blurb)}${keys.includes('azalea')?' Azaleas: '+(azAfter?'some are set to repot after flowering (Oct–Nov).':'repotting before flowering means pinching off that spring\'s flowers; switch a tree to after-flowering on its edit screen.'):''}</p>
