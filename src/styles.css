@@ -395,3 +395,6 @@ img.broken{visibility:hidden}
 .bk-row{display:flex;gap:12px;align-items:center;width:100%;border:0;background:none;padding:6px 0;text-align:left;color:inherit;font:inherit;cursor:pointer}
 .bk-row > span{display:flex;flex-direction:column;min-width:0}
 .bk-mini{width:46px;flex:none}
+.lb-date{background:none;border:0;color:#fff;text-decoration:underline;font:inherit;padding:4px;cursor:pointer}
+.lb-edit{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center}
+.lb-edit input{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.4);background:#fff;color:#111}

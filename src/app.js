@@ -1,5 +1,5 @@
 
-import { state, onChange, addLogs, editLog, deleteLog, restoreLog, setLogFlags, saveRecord, saveMeta, newId, setTreePhotos } from './store.js';
+import { state, onChange, addLogs, editLog, deleteLog, restoreLog, setLogFlags, saveRecord, saveMeta, newId, setTreePhotos, savePhoto } from './store.js';
 import { addPhotos, flushPending, pendingCount } from './photos.js';
 import { fileUrl, getToken, driveConnected, listBackups } from './drive.js';
 import { backupNow, maybeWeeklyBackup } from './backup.js';
@@ -60,7 +60,7 @@ function cover(t){ const ps=(t.photos||[]).filter(id=>PH[id]); const best=t.cove
 function coverId(t){ const ps=(t.photos||[]).filter(id=>PH[id]); return t.cover&&PH[t.cover]?t.cover:(ps.find(id=>PH[id].thumb)||ps[0]); }
 function thumb(t, cls='thumb'){ const c = cover(t); return c ? `<img class="${cls}" src="${c}" alt="" loading="lazy">` : `<div class="${cls} ph">${ico('tree')}</div>`; }
 function parseD(s){ if(!s) return null; const p=s.split('-').map(Number); return new Date(p[0], (p[1]||1)-1, p[2]||15); }
-function fmtD(s, prec){ if(!s) return 'Date unknown'; const d=parseD(s); return (prec==='month'||s.length===7) ? MONTHS_L[d.getMonth()]+' '+d.getFullYear() : d.getDate()+' '+MONTHS[d.getMonth()]+' '+d.getFullYear(); }
+function fmtD(s, prec){ if(!s) return 'Date unknown'; if(String(s).length===4) return String(s); const d=parseD(s); return (prec==='month'||s.length===7) ? MONTHS_L[d.getMonth()]+' '+d.getFullYear() : d.getDate()+' '+MONTHS[d.getMonth()]+' '+d.getFullYear(); }
 function ago(s){ const d=parseD(s); if(!d) return ''; const m=(TODAY.getFullYear()-d.getFullYear())*12+TODAY.getMonth()-d.getMonth(); if(m<1) return 'this month'; if(m<12) return m+' mo ago'; const y=Math.floor(m/12), r=m%12; return y+' yr'+(r>=6?' ½':'')+' ago'; }
 function years(s){ const d=parseD(s); if(!d) return null; return Math.floor((TODAY-d)/31557600000); }
 function logsFor(id){ return LOGS.filter(l => l.trees.includes(id)); }
@@ -227,7 +227,7 @@ function tabPhotos(t){
   const dated = LOGS.reduce((m,l)=>{(l.photos||[]).forEach(p=>m[p]=m[p]||l.date);return m;},{});
   return compareBlock(t, ps, dated) + `<div class="row" style="justify-content:space-between;margin-bottom:12px"><span class="muted num">${ps.length} photos</span>
     <label class="btn small">${ico('cam')}Add photo<input type="file" accept="image/*" multiple hidden data-addphoto="${t.id}"></label></div>
-    ${ps.length?`<div class="pgrid">${ps.map(p=>`<figure><img src="${p.src}" alt="" loading="lazy" data-zoom="${p.id}"><figcaption class="num">${dated[p.id]?fmtD(dated[p.id]):(p.origin==='Bonsai Album'?'Bonsai Album':'Old plant list')}</figcaption></figure>`).join('')}</div>`:'<div class="empty">No photos yet.</div>'}`;
+    ${ps.length?`<div class="pgrid">${ps.map(p=>`<figure><img src="${p.src}" alt="" loading="lazy" data-zoom="${p.id}"><figcaption class="num">${p.date||dated[p.id]?fmtD(p.date||dated[p.id]):(p.origin==='Bonsai Album'?'Bonsai Album':'Old plant list')}</figcaption></figure>`).join('')}</div>`:'<div class="empty">No photos yet.</div>'}`;
 }
 /* woodblock-style band: Prussian-blue Fuji over a seigaiha sea, with a Brisbane-season motif */
 function ukiyoBand(m=NOW_M){
@@ -898,15 +898,17 @@ document.addEventListener('change', async e=>{
 async function openLightbox(id){
   const p=PH[id]; if(!p) return;
   const lb=document.createElement('div'); lb.className='lightbox';
-  lb.innerHTML=`<div><img src="${p.src}" alt=""><p>${p.date?fmtD(p.date):esc(p.origin||'')} · tap to close</p></div>`;
+  lb.innerHTML=`<div><img src="${p.src}" alt=""><p>${p.date?fmtD(p.date):esc(p.origin||'Date unknown')} · <button class="lb-date" data-phdate="${id}">Change date</button> · tap photo to close</p></div>`;
   document.body.appendChild(lb);
   if(p.driveId && navigator.onLine){ try{ const u = await fileUrl(p.driveId); const img=lb.querySelector('img'); if(img) img.src=u; }catch(err){ /* thumbnail is fine */ } }
 }
 document.addEventListener('click', async e=>{
-  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],.lightbox');
+  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],.lightbox');
   if(!c) return;
   const d = c.dataset;
-  if(c.classList.contains('lightbox')){ c.remove(); return; }
+  if(c.classList.contains('lightbox')){ if(e.target.closest('.lb-edit')) return; c.remove(); return; }
+  if('phdate' in d){ const p=PH[d.phdate]; const v=p.date&&p.date.length===10?p.date:''; c.parentElement.outerHTML=`<p class="lb-edit"><label>Taken <input type="date" id="phd" value="${v}" max="${localDay()}"></label> <span class="muted">or year only</span> <input id="phy" type="number" inputmode="numeric" min="1980" max="${TODAY.getFullYear()}" placeholder="e.g. 2009" value="${p.date&&p.date.length===4?p.date:''}" style="width:6.5em"> <button class="btn small" data-phsave="${d.phdate}">Save</button></p>`; return; }
+  if('phsave' in d){ const dd=$('#phd').value, yy=$('#phy').value.trim(); const date=/^(19|20)\d{2}$/.test(yy)?yy:dd; if(!date){ toast('Pick a date or type a year'); return; } await savePhoto({id:d.phsave, date, taken:true}); document.querySelector('.lightbox')?.remove(); toast('Photo date saved'); return; }
   if('close' in d){ if(e.target===c || c.tagName==='BUTTON'){ stopScan(); $('#layer').innerHTML=''; FORM=null; } return; }
   if('book' in d){ stopScan(); $('#layer').innerHTML=''; FORM=null; S.q=''; S.book=d.book; go('book'); return; }
   if('bkf' in d){ S.bkf=d.bkf; render(); return; }

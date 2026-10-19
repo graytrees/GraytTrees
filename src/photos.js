@@ -16,6 +16,48 @@ async function resize(blob, max, q) {
   const out = await new Promise(r => c.toBlob(r, 'image/jpeg', q));
   return { blob: out, w: img.naturalWidth, h: img.naturalHeight, dataUrl: max <= 600 ? c.toDataURL('image/jpeg', q) : null };
 }
+
+/* --- when was the photo taken? camera data first, then a date in the file name --- */
+async function exifDate(file) {
+  try {
+    const v = new DataView(await file.slice(0, 256 * 1024).arrayBuffer());
+    if (v.getUint16(0) !== 0xFFD8) return null;
+    let o = 2;
+    while (o < v.byteLength - 4) {
+      const mk = v.getUint16(o), len = v.getUint16(o + 2);
+      if (mk === 0xFFE1 && v.getUint32(o + 4) === 0x45786966) {
+        const t = o + 10, le = v.getUint16(t) === 0x4949;
+        const u16 = x => v.getUint16(x, le), u32 = x => v.getUint32(x, le);
+        const str = (off, n) => { let r = ''; for (let i = 0; i < n - 1; i++) r += String.fromCharCode(v.getUint8(t + off + i)); return r; };
+        const scan = (ifd, want) => { const n = u16(t + ifd); for (let i = 0; i < n; i++) { const e = t + ifd + 2 + i * 12; if (want.includes(u16(e))) return [u16(e), u32(e + 8), u32(e + 4)]; } return null; };
+        const sub = scan(u32(t + 4), [0x8769]);
+        let hit = sub && scan(sub[1], [0x9003, 0x9004]);
+        if (!hit) hit = scan(u32(t + 4), [0x0132]);
+        if (!hit) return null;
+        const m = str(hit[1], hit[2]).match(/^(\d{4}):(\d{2}):(\d{2})/);
+        return m && m[1] > '1900' && m[1] !== '0000' ? `${m[1]}-${m[2]}-${m[3]}` : null;
+      }
+      if ((mk & 0xFF00) !== 0xFF00) return null;
+      o += 2 + len;
+    }
+  } catch (e) { /* not a JPEG with camera data */ }
+  return null;
+}
+const okYear = y => y >= 1980 && y <= new Date().getFullYear();
+export function nameDate(name = '') {
+  const n = name.replace(/\.[a-z0-9]+$/i, '');
+  let m = n.match(/(?:^|\D)((?:19|20)\d{2})[-_. ]?(0[1-9]|1[0-2])[-_. ]?(0[1-9]|[12]\d|3[01])(?!\d)/);
+  if (m && okYear(+m[1])) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = n.match(/(?:^|\D)(0[1-9]|[12]\d|3[01])[-_. ](0[1-9]|1[0-2])[-_. ]((?:19|20)\d{2})(?!\d)/);   // 14-05-2009 (Australian order)
+  if (m && okYear(+m[3])) return `${m[3]}-${m[2]}-${m[1]}`;
+  m = n.match(/(?:^|\D)((?:19|20)\d{2})[-_. ](0[1-9]|1[0-2])(?!\d)/);                               // 2009-05
+  if (m && okYear(+m[1])) return `${m[1]}-${m[2]}`;
+  m = n.match(/(?:^|\D)((?:19|20)\d{2})(?!\d)/);                                                   // 2009
+  if (m && okYear(+m[1])) return m[1];
+  return null;
+}
+export async function photoDate(file) { return (await exifDate(file)) || nameDate(file.name); }
+
 export const makeThumb = async blob => (await resize(blob, 420, 0.72)).dataUrl;
 
 /* --- tiny IndexedDB queue for full-size photos waiting to upload --- */
@@ -33,7 +75,8 @@ export async function addPhotos(files, { trees = [], date, origin = 'Graytrees',
     const id = newId('p');
     const th = await resize(f, 420, 0.72);
     const full = await resize(f, 2000, 0.85);
-    const rec = { id, thumb: th.dataUrl, w: th.w, h: th.h, date: date || (d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'))(new Date()), trees, origin, name: f.name || id + '.jpg' };
+    const taken = date ? null : await photoDate(f);
+    const rec = { id, thumb: th.dataUrl, w: th.w, h: th.h, ...(taken ? { taken: true } : {}), date: date || taken || (d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'))(new Date()), trees, origin, name: f.name || id + '.jpg' };
     let driveId = null;
     try { if (navigator.onLine) driveId = await upload(full.blob, `${rec.date} ${id}.jpg`, 'Photos', interactive); } catch (e) { console.warn('upload later', e); }
     if (!driveId) await qPut(id, { blob: full.blob, name: `${rec.date} ${id}.jpg` });
