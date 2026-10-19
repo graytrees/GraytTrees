@@ -295,7 +295,7 @@ function viewAhead(){
       ${(TIPS[m]||[]).map(x=>`<div class="tip"><b>${esc(x.t)}</b><p>${esc(x.x)}</p><span>${esc(x.s)}</span></div>`).join('')}
     </div>
     <div class="card tt" style="padding:16px">
-      <span class="eyebrow">TickTick preview · sent ${sel===0?'today (first run)':'1 '+MONTHS_L[m-1]+' at 7am'}</span>
+      <span class="eyebrow">TickTick preview · ${sel===0?'this month':'arrives 1 '+MONTHS_L[m-1]+', 7am'}</span>
       <p class="muted" style="font-size:calc(14.5px*var(--fs));margin:6px 0 10px">One task in your <b style="color:var(--ink)">Bonsai</b> list, due the end of the month. Tick items off as you get to them.</p>
       <div class="tt-task"><span class="tt-box"></span><div style="min-width:0;flex:1"><b>Bonsai jobs – ${MONTHS_L[m-1]} ${y}</b><span>Due ${new Date(y,m,0).getDate()} ${MONTHS[m-1]} · ${nItems} checklist item${nItems===1?'':'s'}</span>
         <ul class="tt-list">${[...A.repots.map(t=>'Repot '+t.name), ...A.autumn.map(t=>'Autumn option: repot '+t.name+' (light root work)'), ...A.opens.map(o=>tickTitle(o)), ...A.coll].map(x=>`<li><span class="tt-box sm"></span>${esc(x)}</li>`).join('') || '<li class="muted">Nothing extra this month – routines continue</li>'}</ul>
@@ -428,7 +428,7 @@ function viewHow(){
     <div class="mrow">
       ${mnode('archive','Records','Firebase (Sydney) · '+live+' trees, '+LOGS.length+' entries, pots, mixes','k-data')}
       ${mnode('cam','Google Drive','GraytTrees folder · full-size photos and the weekly backup ('+last.replace('Last one','last one')+')','k-data','settings')}
-      ${mnode('bell','TickTick','Bonsai list · feeding and spray routines; monthly jobs checklist planned','k-data k-plan')}
+      ${mnode('bell','TickTick','Bonsai list · Saturday feed and spray routines, plus a jobs checklist on the 1st of each month','k-data')}
     </div>
     ${mdown('copied by')}
     ${mnode('shield','IDrive','Google Personal Backup · a second copy of your whole Google account, Drive included','k-data')}
