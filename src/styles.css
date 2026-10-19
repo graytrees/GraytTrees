@@ -398,3 +398,7 @@ img.broken{visibility:hidden}
 .lb-date{background:none;border:0;color:#fff;text-decoration:underline;font:inherit;padding:4px;cursor:pointer}
 .lb-edit{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center}
 .lb-edit input{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.4);background:#fff;color:#111}
+.lb-full{font-size:calc(14px*var(--fs));opacity:.85}
+.lb-full a{color:#fff}
+.lightbox.page{place-items:start center;overflow:auto;touch-action:pan-x pan-y pinch-zoom}
+.lightbox.page img{max-height:none;width:100%;max-width:1100px}

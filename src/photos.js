@@ -66,6 +66,7 @@ function idb() { return new Promise((res, rej) => { const r = indexedDB.open(DB,
 async function qPut(id, val) { const d = await idb(); return new Promise(r => { const t = d.transaction('q', 'readwrite'); t.objectStore('q').put(val, id); t.oncomplete = r; }); }
 async function qAll() { const d = await idb(); return new Promise(r => { const out = []; const c = d.transaction('q').objectStore('q').openCursor(); c.onsuccess = e => { const cur = e.target.result; if (cur) { out.push([cur.key, cur.value]); cur.continue(); } else r(out); }; }); }
 async function qDel(id) { const d = await idb(); return new Promise(r => { const t = d.transaction('q', 'readwrite'); t.objectStore('q').delete(id); t.oncomplete = r; }); }
+export async function localFull(id) { try { const d = await idb(); const v = await new Promise(r => { const g = d.transaction('q').objectStore('q').get(id); g.onsuccess = () => r(g.result); g.onerror = () => r(null); }); return v?.blob ? URL.createObjectURL(v.blob) : null; } catch (e) { return null; } }
 export async function pendingCount() { try { return (await qAll()).length; } catch (e) { return 0; } }
 
 /** Add photos taken or picked on the device. Returns the new photo ids. */
@@ -74,7 +75,7 @@ export async function addPhotos(files, { trees = [], date, origin = 'Graytrees',
   for (const f of files) {
     const id = newId('p');
     const th = await resize(f, 420, 0.72);
-    const full = await resize(f, 2000, 0.85);
+    const full = origin === 'Library' ? await resize(f, 3200, 0.9) : await resize(f, 2000, 0.85); // book pages need to stay readable
     const taken = date ? null : await photoDate(f);
     const rec = { id, thumb: th.dataUrl, w: th.w, h: th.h, ...(taken ? { taken: true } : {}), date: date || taken || (d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'))(new Date()), trees, origin, name: f.name || id + '.jpg' };
     let driveId = null;

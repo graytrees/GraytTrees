@@ -1,6 +1,6 @@
 
 import { state, onChange, addLogs, editLog, deleteLog, restoreLog, setLogFlags, saveRecord, saveMeta, newId, setTreePhotos, savePhoto } from './store.js';
-import { addPhotos, flushPending, pendingCount } from './photos.js';
+import { addPhotos, flushPending, pendingCount, localFull } from './photos.js';
 import { fileUrl, getToken, driveConnected, listBackups } from './drive.js';
 import { backupNow, maybeWeeklyBackup } from './backup.js';
 import { runImport } from './importer.js';
@@ -908,15 +908,35 @@ async function openLightbox(id){
   const p=PH[id]; if(!p) return;
   const lb=document.createElement('div'); lb.className='lightbox';
   lb.innerHTML=`<div><img src="${p.src}" alt=""><p>${p.date?fmtD(p.date):esc(p.origin||'Date unknown')} · <button class="lb-date" data-phdate="${id}">Change date</button>${S.view==='tree'&&byId[S.tree]?.photos?.includes(id)?(byId[S.tree].cover===id?` · <button class="lb-date" data-phcover="">Go back to newest photo</button>`:coverId(byId[S.tree])===id?'':` · <button class="lb-date" data-phcover="${id}">Use as tree photo</button>`):''} · tap photo to close</p></div>`;
+  if(p.origin==='Library') lb.classList.add('page');
   document.body.appendChild(lb);
-  if(p.driveId && navigator.onLine){ try{ const u = await fileUrl(p.driveId); const img=lb.querySelector('img'); if(img) img.src=u; }catch(err){ /* thumbnail is fine */ } }
+  const note=document.createElement('p'); note.className='lb-full'; lb.firstChild.appendChild(note);
+  if(p.driveId){
+    note.innerHTML=`<span>Loading full size…</span> · <a href="https://drive.google.com/file/d/${p.driveId}/view" target="_blank" rel="noopener">Open in Drive to zoom</a>`;
+    if(navigator.onLine) await loadFull(lb, p, false);
+    else note.querySelector('span').textContent='Showing the small copy (no signal)';
+  } else {
+    note.innerHTML='<span>The full-size copy is still on this device waiting to upload.</span>';
+    const local = await localFull(id); if(local){ lb.querySelector('img').src=local; note.querySelector('span').textContent='Full size (on this device, uploads when online)'; }
+  }
+}
+async function loadFull(lb, p, interactive){
+  const span=lb.querySelector('.lb-full span');
+  try{
+    if(interactive) await getToken(true);
+    const u = await fileUrl(p.driveId); const img=lb.querySelector('img'); if(img) img.src=u;
+    if(span) span.textContent='Full size';
+  }catch(err){
+    if(span) span.innerHTML=`Small copy only · <button class="lb-date" data-lbfull="${p.driveId}">Load full size</button>`;
+  }
 }
 document.addEventListener('click', async e=>{
-  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],.lightbox');
+  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],.lightbox');
   if(!c) return;
   const d = c.dataset;
-  if(c.classList.contains('lightbox')){ if(e.target.closest('.lb-edit')) return; c.remove(); return; }
+  if(c.classList.contains('lightbox')){ if(e.target.closest('.lb-edit,.lb-full a')) return; c.remove(); return; }
   if('phdate' in d){ const p=PH[d.phdate]; const v=p.date&&p.date.length===10?p.date:''; c.parentElement.outerHTML=`<p class="lb-edit"><label>Taken <input type="date" id="phd" value="${v}" max="${localDay()}"></label> <span class="muted">or year only</span> <input id="phy" type="number" inputmode="numeric" min="1980" max="${TODAY.getFullYear()}" placeholder="e.g. 2009" value="${p.date&&p.date.length===4?p.date:''}" style="width:6.5em"> <button class="btn small" data-phsave="${d.phdate}">Save</button></p>`; return; }
+  if('lbfull' in d){ const lb=c.closest('.lightbox'); const p=Object.values(PH).find(x=>x.driveId===d.lbfull); c.parentElement.textContent='Loading full size…'; await loadFull(lb, p, true); return; }
   if('phcover' in d){ const t=byId[S.tree]; await saveRecord('trees', {...t, cover:d.phcover||null}); document.querySelector('.lightbox')?.remove(); toast(d.phcover?'Tree photo set':'Showing the newest photo'); return; }
   if('phsave' in d){ const dd=$('#phd').value, yy=$('#phy').value.trim(); const date=/^(19|20)\d{2}$/.test(yy)?yy:dd; if(!date){ toast('Pick a date or type a year'); return; } await savePhoto({id:d.phsave, date, taken:true}); document.querySelector('.lightbox')?.remove(); toast('Photo date saved'); return; }
   if('close' in d){ if(e.target===c || c.tagName==='BUTTON'){ stopScan(); $('#layer').innerHTML=''; FORM=null; } return; }
