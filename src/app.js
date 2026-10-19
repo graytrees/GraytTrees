@@ -56,8 +56,16 @@ function nextSat(){const d=new Date(TODAY);d.setDate(d.getDate()+((6-d.getDay()+
 /* --- helpers --- */
 const evText = t => t.every ? t.every[0]+'–'+t.every[1] : String((GUIDE[t.group]||GUIDE.other).every);
 const photo = id => PH[id] ? PH[id].src : null;
-function cover(t){ const ps=(t.photos||[]).filter(id=>PH[id]); const best=t.cover&&PH[t.cover]?t.cover:(ps.find(id=>PH[id].thumb)||ps[0]); return best ? photo(best) : null; }
-function coverId(t){ const ps=(t.photos||[]).filter(id=>PH[id]); return t.cover&&PH[t.cover]?t.cover:(ps.find(id=>PH[id].thumb)||ps[0]); }
+// Tree photo: the one you pinned, otherwise the most recent dated photo
+let PDATE = {};
+function coverId(t){
+  const ps=(t.photos||[]).filter(id=>PH[id]);
+  if(t.cover && PH[t.cover]) return t.cover;
+  let best=null, bd='';
+  for(const id of ps){ const d=PH[id].date||PDATE[id]||''; if(!best || d>bd){ best=id; bd=d; } }
+  return best;
+}
+function cover(t){ const id=coverId(t); return id ? photo(id) : null; }
 function thumb(t, cls='thumb'){ const c = cover(t); return c ? `<img class="${cls}" src="${c}" alt="" loading="lazy">` : `<div class="${cls} ph">${ico('tree')}</div>`; }
 function parseD(s){ if(!s) return null; const p=s.split('-').map(Number); return new Date(p[0], (p[1]||1)-1, p[2]||15); }
 function fmtD(s, prec){ if(!s) return 'Date unknown'; if(String(s).length===4) return String(s); const d=parseD(s); return (prec==='month'||s.length===7) ? MONTHS_L[d.getMonth()]+' '+d.getFullYear() : d.getDate()+' '+MONTHS[d.getMonth()]+' '+d.getFullYear(); }
@@ -856,6 +864,7 @@ function sync(){
   LOGS = state.logs.filter(l=>!l.deleted).map(l=>({...l, trees:l.trees||[], actions:l.actions||['note'], sources:l.sources||[], flags:l.flags||[]}));
   DELETED = state.logs.filter(l=>l.deleted).map(l=>({...l, trees:l.trees||[]}));
   PH = Object.fromEntries(Object.values(state.photos).map(p=>[p.id,{src:p.thumb||p.url, thumb:!!p.thumb, date:p.date, origin:p.origin, driveId:p.driveId, url:p.url}]));
+  PDATE = {}; LOGS.forEach(l=>(l.photos||[]).forEach(p=>{ if(!PDATE[p]) PDATE[p]=l.date; }));
   D.pots = state.pots; D.done = state.meta.importNotes?.done || [];
   MIXES = state.mixes.slice().sort((a,b)=>a.name.localeCompare(b.name));
   if(!MIXES.length) MIXES = DEFAULT_MIXES;
@@ -898,16 +907,17 @@ document.addEventListener('change', async e=>{
 async function openLightbox(id){
   const p=PH[id]; if(!p) return;
   const lb=document.createElement('div'); lb.className='lightbox';
-  lb.innerHTML=`<div><img src="${p.src}" alt=""><p>${p.date?fmtD(p.date):esc(p.origin||'Date unknown')} · <button class="lb-date" data-phdate="${id}">Change date</button> · tap photo to close</p></div>`;
+  lb.innerHTML=`<div><img src="${p.src}" alt=""><p>${p.date?fmtD(p.date):esc(p.origin||'Date unknown')} · <button class="lb-date" data-phdate="${id}">Change date</button>${S.view==='tree'&&byId[S.tree]?.photos?.includes(id)?(byId[S.tree].cover===id?` · <button class="lb-date" data-phcover="">Go back to newest photo</button>`:coverId(byId[S.tree])===id?'':` · <button class="lb-date" data-phcover="${id}">Use as tree photo</button>`):''} · tap photo to close</p></div>`;
   document.body.appendChild(lb);
   if(p.driveId && navigator.onLine){ try{ const u = await fileUrl(p.driveId); const img=lb.querySelector('img'); if(img) img.src=u; }catch(err){ /* thumbnail is fine */ } }
 }
 document.addEventListener('click', async e=>{
-  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],.lightbox');
+  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],.lightbox');
   if(!c) return;
   const d = c.dataset;
   if(c.classList.contains('lightbox')){ if(e.target.closest('.lb-edit')) return; c.remove(); return; }
   if('phdate' in d){ const p=PH[d.phdate]; const v=p.date&&p.date.length===10?p.date:''; c.parentElement.outerHTML=`<p class="lb-edit"><label>Taken <input type="date" id="phd" value="${v}" max="${localDay()}"></label> <span class="muted">or year only</span> <input id="phy" type="number" inputmode="numeric" min="1980" max="${TODAY.getFullYear()}" placeholder="e.g. 2009" value="${p.date&&p.date.length===4?p.date:''}" style="width:6.5em"> <button class="btn small" data-phsave="${d.phdate}">Save</button></p>`; return; }
+  if('phcover' in d){ const t=byId[S.tree]; await saveRecord('trees', {...t, cover:d.phcover||null}); document.querySelector('.lightbox')?.remove(); toast(d.phcover?'Tree photo set':'Showing the newest photo'); return; }
   if('phsave' in d){ const dd=$('#phd').value, yy=$('#phy').value.trim(); const date=/^(19|20)\d{2}$/.test(yy)?yy:dd; if(!date){ toast('Pick a date or type a year'); return; } await savePhoto({id:d.phsave, date, taken:true}); document.querySelector('.lightbox')?.remove(); toast('Photo date saved'); return; }
   if('close' in d){ if(e.target===c || c.tagName==='BUTTON'){ stopScan(); $('#layer').innerHTML=''; FORM=null; } return; }
   if('book' in d){ stopScan(); $('#layer').innerHTML=''; FORM=null; S.q=''; S.book=d.book; go('book'); return; }
