@@ -6,6 +6,7 @@ import { backupNow, maybeWeeklyBackup } from './backup.js';
 import { runImport } from './importer.js';
 import { signOut, auth } from './firebase.js';
 import { TIPS, NOTES, COLLECTION } from './knowledge.js';
+import { GUIDE, CALS, calOf, AZ_AFTER, repotWin, autumnWin, evMin, addMonths, makeJobs, tickTitle } from './jobs.js';
 
 const D = { pots: [], done: [] };
 const TODAY = new Date();
@@ -43,30 +44,6 @@ const kindOf = a => (ACT[a] && ACT[a].kind) || a;
 const SEASONS = [['Summer',[12,1,2]],['Autumn',[3,4,5]],['Winter',[6,7,8]],['Spring',[9,10,11]]];
 const TASKS = {repot:{label:'Repot', c:'var(--wire)'}, struct:{label:'Hard / structural prune', c:'#7A5A2E'}, prune:{label:'Trim new growth', c:'var(--moss)'},
   wire:{label:'Wire', c:'var(--glaze)'}, defol:{label:'Defoliate / decandle', c:'#8C9A3A'}, clean:{label:'Clean / needle work', c:'#9C7FB0'}, potash:{label:'Liquid potash', c:'#C2577A'}, fert:{label:'Feed', c:'#6E8FA0'}, autumn:{label:'Autumn option', c:'var(--wire)'}};
-const GUIDE = {  /* timing from Nathan's monthly calendar, Red Dragon newsletters and his own repot history (Brisbane); repot windows revised Oct 2026 */
-  pine:{name:'Black pines', every:3, rows:{repot:[7,8], autumn:[3,4,5], struct:[7], wire:[6,7], defol:[9], clean:[3,4,5,6], prune:[12,1,2,10,11], fert:[3,4,5,9,10,11,12,1,2]}},
-  elm:{name:'Chinese elms', every:2, rows:{repot:[7,8], autumn:[3,4,5], struct:[6,7], prune:[9,10,11,12,1,2,3], wire:[6,7], defol:[12], fert:[3,4,5,9,10,11]}},
-  juniper:{name:'Junipers', every:3, rows:{repot:[7,8], autumn:[3,4,5], struct:[6,7,8], prune:[9,10,11,12,1,2,3], wire:[6,7], clean:[3,9], fert:[3,4,5,9,10,11,12,1,2]}},
-  fig:{name:'Figs', every:2, rows:{repot:[10,11,12], autumn:[3,4], prune:[9,10,11,12,1,2,3], defol:[12], wire:[11,12,1,2], fert:[3,4,5,9,10,11]}},
-  cler:{name:'Clerodendrums', every:2, rows:{repot:[10,11,12], autumn:[3,4], prune:[10,11,12,1,2,3], wire:[10,11,12,1,2], fert:[3,4,5,9,10,11]}},
-  swamp:{name:'Swamp cypress', every:2, rows:{repot:[7,8], autumn:[3,4,5], struct:[7,8], prune:[10,11,12,1,2,3], wire:[6,7], fert:[9,10,11,12,1,2,3]}},
-  podo:{name:'Buddhist pine', every:3, rows:{repot:[7,8], autumn:[3,4,5], prune:[9,10,11,12,1,2,3,4], wire:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
-  mela:{name:'Melaleuca', every:2, rows:{repot:[8,9,10], autumn:[3,4,5], prune:[10,11,12,1,2,3], fert:[3,4,5,9,10,11]}},
-  bougie:{name:'Bougainvillea', every:2, rows:{repot:[10,11,12], autumn:[3,4], prune:[1,2,3], wire:[11,12,1,2], potash:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
-  azalea:{name:'Azaleas', every:2, rows:{repot:[7,8], autumn:[3,4,5], prune:[11,12,1,2], wire:[12,1,2], potash:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
-  african:{name:'Jaboticaba', every:2, rows:{repot:[10,11,12], autumn:[3,4], prune:[11,12,1,2,3], wire:[11,12,1,2], potash:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
-  other:{name:'Other', every:2, rows:{}}
-};
-/* the three season calendars (Oct 2026): grouped by what wakes each tree up */
-const CALS = [
-  {id:'exotic', name:'Exotics', blurb:'Northern-hemisphere trees. Repot mid-July to August: elms first, then junipers and pines.', species:['elm','juniper','pine','swamp','podo','azalea'], def:'pine'},
-  {id:'native', name:'Natives', blurb:'Australian natives. Repot August to September, October at a stretch.', species:['mela']},
-  {id:'tropical', name:'Ficus & tropicals', blurb:'Repot mid-October to December, once nights stay above about 15°C. Never January.', species:['fig','cler','bougie','african'], def:'fig'}
-];
-const calOf = g => CALS.find(c=>c.species.includes(g));
-const AZ_AFTER = [10,11];  /* azalea repotted straight after flowering */
-const repotWin = t => (t.group==='azalea' && t.azTiming==='after') ? AZ_AFTER : ((GUIDE[t.group]||GUIDE.other).rows.repot||[]);
-const autumnWin = t => (GUIDE[t.group]||GUIDE.other).rows.autumn||[];
 /* already set up in Nathan's TickTick "Bonsai" list (recurring, Saturdays 8am) */
 const ROUTINES = [
   {name:'Fertilise Bonsai', every:'Every 2nd Saturday', icon:'drop', first:'2026-10-03', weeks:2},
@@ -77,7 +54,6 @@ function routineDates(r, y, m){ const out=[]; let d=parseD(r.first); while(d.get
 function nextSat(){const d=new Date(TODAY);d.setDate(d.getDate()+((6-d.getDay()+7)%7||7));return 'Next: Sat '+d.getDate()+' '+MONTHS[d.getMonth()];}
 
 /* --- helpers --- */
-const evMin = t => t.every ? t.every[0] : (GUIDE[t.group]||GUIDE.other).every;
 const evText = t => t.every ? t.every[0]+'–'+t.every[1] : String((GUIDE[t.group]||GUIDE.other).every);
 const photo = id => PH[id] ? PH[id].src : null;
 function cover(t){ const ps=(t.photos||[]).filter(id=>PH[id]); const best=t.cover&&PH[t.cover]?t.cover:(ps.find(id=>PH[id].thumb)||ps[0]); return best ? photo(best) : null; }
@@ -294,31 +270,9 @@ function tabRem(t){
 }
 
 /* ---- monthly look-ahead: what falls due in a given month ---- */
-function addMonths(y,m,n){ const d=new Date(y,m-1+n,1); return [d.getFullYear(), d.getMonth()+1]; }
-function repotMonth(t){
-  const win = repotWin(t); if(!win.length) return null;
-  const last = lastOf(t.id,['repot']);
-  let [y,m] = last ? (()=>{const d=parseD(last.date); return [d.getFullYear()+evMin(t), d.getMonth()+1];})() : [TODAY.getFullYear(), NOW_M];
-  if(y < TODAY.getFullYear() || (y===TODAY.getFullYear() && m < NOW_M)) { y=TODAY.getFullYear(); m=NOW_M; }
-  for(let i=0;i<24;i++){ const [yy,mm]=addMonths(y,m,i); if(win.includes(mm)) return [yy,mm]; }
-  return null;
-}
-function lookahead(y,m){
-  const active = TREES.filter(t=>t.status!=='past');
-  const repots = active.filter(t=>{ const r=repotMonth(t); return r && r[0]===y && r[1]===m; });
-  const prev = m===1?12:m-1, opens=[];
-  for(const [k,g] of Object.entries(GUIDE)){
-    const ts = active.filter(t=>t.group===k); if(!ts.length) continue;
-    for(const task of ['struct','wire','defol','clean','potash','prune']){
-      const w = g.rows[task]||[]; if(w.includes(m) && !w.includes(prev)) opens.push({task, g, trees:ts, until:MONTHS[w.reduce((a,x)=>x,0)-1]});
-    }
-  }
-  const overdueBy = t => { const l=lastOf(t.id,['repot']); if(!l) return false; const d=parseD(l.date); return (d.getFullYear()+evMin(t))*12+d.getMonth()+1 <= y*12+m; };
-  const autumn = active.filter(t=>!repots.includes(t) && autumnWin(t).includes(m) && (t.autumn==='yes' || overdueBy(t)));
-  const routines = ROUTINES.map(r=>({r, dates:routineDates(r,y,m)}));
-  return {repots, opens, autumn, routines, coll:(COLLECTION[m]||[])};
-}
-function tickTitle(o){ const verb={struct:'Hard prune',wire:'Wire',defol:o.g.name==='Black pines'?'Decandle':'Defoliate',clean:o.g.name==='Black pines'?'Needle clean-up':'Clean out dead needles',potash:'Liquid potash (fortnightly)',prune:'Start trimming new growth'}[o.task]; return `${verb}: ${o.g.name.toLowerCase()} (${o.trees.length} tree${o.trees.length>1?'s':''})`; }
+const JC = () => makeJobs({trees:TREES, lastOf, today:TODAY});
+const repotMonth = t => JC().repotMonth(t);
+function lookahead(y,m){ return {...JC().month(y,m), routines: ROUTINES.map(r=>({r, dates:routineDates(r,y,m)}))}; }
 function viewAhead(){
   const sel = S.ahead || 0, [y,m] = addMonths(TODAY.getFullYear(), NOW_M, sel), A = lookahead(y,m);
   const nItems = A.repots.length + A.opens.length + A.coll.length + A.autumn.length;
