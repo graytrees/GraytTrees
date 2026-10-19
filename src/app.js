@@ -225,10 +225,45 @@ function tabHistory(t,L){ return L.length ? `<p class="muted" style="font-size:c
 function tabPhotos(t){
   const ps = t.photos.map(id=>({id,...PH[id]})).filter(p=>p.src);
   const dated = LOGS.reduce((m,l)=>{(l.photos||[]).forEach(p=>m[p]=m[p]||l.date);return m;},{});
-  return `<div class="row" style="justify-content:space-between;margin-bottom:12px"><span class="muted num">${ps.length} photos</span>
+  return compareBlock(t, ps, dated) + `<div class="row" style="justify-content:space-between;margin-bottom:12px"><span class="muted num">${ps.length} photos</span>
     <label class="btn small">${ico('cam')}Add photo<input type="file" accept="image/*" multiple hidden data-addphoto="${t.id}"></label></div>
     ${ps.length?`<div class="pgrid">${ps.map(p=>`<figure><img src="${p.src}" alt="" loading="lazy" data-zoom="${p.id}"><figcaption class="num">${dated[p.id]?fmtD(dated[p.id]):(p.origin==='Bonsai Album'?'Bonsai Album':'Old plant list')}</figcaption></figure>`).join('')}</div>`:'<div class="empty">No photos yet.</div>'}`;
 }
+/* before / after comparison: oldest vs newest dated photo, either side changeable */
+function compareBlock(t, ps, dated){
+  const when = p => p.date || dated[p.id] || '';
+  const ds = ps.filter(when).sort((a,b)=>when(a).localeCompare(when(b)));
+  if(ds.length<2) return '';
+  const c = (S.cmp && S.cmp.tree===t.id) ? S.cmp : {tree:t.id, a:ds[0].id, b:ds[ds.length-1].id, pick:null};
+  const A = ds.find(p=>p.id===c.a)||ds[0], B = ds.find(p=>p.id===c.b)||ds[ds.length-1];
+  const yrs = Math.round((parseD(when(B))-parseD(when(A)))/3.15576e10*10)/10;
+  const strip = side => `<div class="cmp-strip" role="group" aria-label="Choose the ${side==='a'?'before':'after'} photo">${ds.map(p=>`<button data-cmp${side}="${p.id}" aria-pressed="${(side==='a'?A:B).id===p.id}"><img src="${p.src}" alt="" loading="lazy"><span class="num">${fmtD(when(p)).replace(/^\d+ /,'')}</span></button>`).join('')}</div>`;
+  return `<div class="card cmp" data-cmptree="${t.id}">
+    <div class="row" style="justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:10px"><b style="font-size:calc(17px*var(--fs))">Before and after</b><span class="muted num" style="font-size:calc(14px*var(--fs))">${yrs>=1?yrs+' years':Math.max(1,Math.round(yrs*12))+' months'} apart</span></div>
+    <div class="cmp-stage" style="--x:50%">
+      <img class="cmp-b" data-id="${B.id}" src="${B.src}" alt="After, ${esc(fmtD(when(B)))}" ${B.driveId?`data-full="${B.driveId}"`:''}>
+      <img class="cmp-a" data-id="${A.id}" src="${A.src}" alt="Before, ${esc(fmtD(when(A)))}" ${A.driveId?`data-full="${A.driveId}"`:''}>
+      <span class="cmp-line" aria-hidden="true"></span>
+      <span class="cmp-lab l num">${esc(fmtD(when(A)))}</span><span class="cmp-lab r num">${esc(fmtD(when(B)))}</span>
+    </div>
+    <input type="range" min="0" max="100" value="50" data-cmpx aria-label="Slide between before and after">
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+      <button class="chip" data-cmppick="a" aria-pressed="${c.pick==='a'}">Change before</button>
+      <button class="chip" data-cmppick="b" aria-pressed="${c.pick==='b'}">Change after</button>
+      <button class="chip" data-cmpswap>Swap</button>
+      ${(c.a!==ds[0].id||c.b!==ds[ds.length-1].id)?'<button class="chip" data-cmpreset>Oldest vs newest</button>':''}
+    </div>
+    ${c.pick?`<p class="muted" style="margin:10px 0 6px;font-size:calc(14px*var(--fs))">Tap a photo to use as the <b style="color:var(--ink)">${c.pick==='a'?'before':'after'}</b> picture, e.g. one taken from the same side.</p>${strip(c.pick)}`:''}
+  </div>`;
+}
+async function upgradeCmp(){
+  for(const img of document.querySelectorAll('.cmp-stage img[data-full]')){
+    if(!navigator.onLine) return;
+    try{ const u = await fileUrl(img.dataset.full); if(img.isConnected) img.src = u; }catch(e){ /* thumbnail is fine */ }
+  }
+}
+function cmpMove(stage, clientX){ const r=stage.getBoundingClientRect(); const x=Math.max(0,Math.min(100,(clientX-r.left)/r.width*100)); stage.style.setProperty('--x',x+'%'); const rg=stage.parentElement.querySelector('[data-cmpx]'); if(rg) rg.value=Math.round(x); }
+document.addEventListener('pointerdown', e=>{ const st=e.target.closest('.cmp-stage'); if(!st) return; st.setPointerCapture(e.pointerId); cmpMove(st,e.clientX); const mv=ev=>cmpMove(st,ev.clientX), up=()=>{st.removeEventListener('pointermove',mv);st.removeEventListener('pointerup',up);}; st.addEventListener('pointermove',mv); st.addEventListener('pointerup',up); });
 const rowList = rows => Array.isArray(rows) ? rows : Object.entries(rows).map(([k,months])=>({k, label:TASKS[k].label, months}));
 function calRows(rows, mine){
   return rowList(rows).map(({k,label,months})=>`<tr><th scope="row">${esc(label)}</th>${MONTHS.map((m,i)=>{const on=months.includes(i+1), prev=months.includes(i===0?12:i), next=months.includes(i===11?1:i+2);
@@ -639,6 +674,7 @@ export function render(){
   $('#main').innerHTML = v();
   const navKey = S.view==='tree' ? (byId[S.tree]?.status==='past'?'past':'trees') : S.view;
   document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.dataset.nav==='more' && ['pots','mixes','past','review','more','recycle','settings','import','how'].includes(navKey))) ? 'page':'false'); });
+  if(document.querySelector('.cmp-stage')) upgradeCmp();
   if(S.view==='settings') pendingCount().then(n=>{ const el=$('#pendingInfo'); if(el) el.textContent = n ? `${n} photo${n>1?'s':''} waiting to upload` : ''; });
 }
 function sync(){
@@ -659,6 +695,7 @@ export function refresh(){ if(S.view==='import'&&S.importing) return; cancelAnim
 let qTimer;
 document.addEventListener('input', e=>{
   if(e.target.id==='q'){ clearTimeout(qTimer); const pos=e.target.selectionStart; qTimer=setTimeout(()=>{ S.q=e.target.value; render(); const q=$('#q'); if(q){q.focus(); q.setSelectionRange(pos,pos);} },180); }
+  if(e.target.matches('[data-cmpx]')){ e.target.closest('.cmp').querySelector('.cmp-stage').style.setProperty('--x', e.target.value+'%'); return; }
   if(e.target.id==='lgnote') LG.note=e.target.value;
   if(e.target.dataset.jlabel){ JOBS[+e.target.dataset.jlabel].label=e.target.value||'Untitled job'; saveJobs(); }
   if(e.target.dataset.clabel){ COMBOS[+e.target.dataset.clabel].label=e.target.value||'Shortcut'; saveJobs(); }
@@ -687,7 +724,7 @@ async function openLightbox(id){
   if(p.driveId && navigator.onLine){ try{ const u = await fileUrl(p.driveId); const img=lb.querySelector('img'); if(img) img.src=u; }catch(err){ /* thumbnail is fine */ } }
 }
 document.addEventListener('click', async e=>{
-  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],.lightbox');
+  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],.lightbox');
   if(!c) return;
   const d = c.dataset;
   if(c.classList.contains('lightbox')){ c.remove(); return; }
@@ -728,6 +765,14 @@ document.addEventListener('click', async e=>{
   if('fs' in d){ setTextSize(d.fs); render(); return; }
   if('layout' in d){ S.layout=d.layout; try{localStorage.setItem('gt-layout',S.layout);}catch(err){} render(); return; }
   if('ahead' in d){ S.ahead=+d.ahead; render(); return; }
+  if('cmpa' in d || 'cmpb' in d || 'cmppick' in d || 'cmpswap' in d || 'cmpreset' in d){
+    const tid=c.closest('[data-cmptree]').dataset.cmptree, st=c.closest('.cmp').querySelector('.cmp-stage');
+    const cur={tree:tid, a:st.querySelector('.cmp-a').dataset.id, b:st.querySelector('.cmp-b').dataset.id, pick:S.cmp?.tree===tid?S.cmp.pick:null, ...(S.cmp?.tree===tid?{a:S.cmp.a,b:S.cmp.b}:{})};
+    if('cmpreset' in d) S.cmp=null;
+    else if('cmppick' in d) S.cmp={...cur, pick: cur.pick===d.cmppick?null:d.cmppick};
+    else if('cmpswap' in d) S.cmp={...cur, a:cur.b, b:cur.a};
+    else S.cmp={...cur, ...('cmpa' in d?{a:d.cmpa}:{b:d.cmpb}), pick:null};
+    render(); return; }
   if('calsp' in d){ const [ci,k]=d.calsp.split(':'); S.calSp={...(S.calSp||{}), [ci]:k}; render(); return; }
   if('tick' in d){ const l=LOGS.find(x=>x.id===d.tick); const flags=(l.flags||[]).filter(f=>!['tick','bulk','confirmed'].includes(f)).concat(d.val==='tick'?['tick']:['confirmed']); setLogFlags(d.tick, flags); return; }
   if('log' in d){ openLog(d.log||null); return; }
