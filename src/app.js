@@ -719,20 +719,27 @@ function viewLibrary(){
   const all = BOOKS();
   const q = (S.q||'').toLowerCase().trim(), f = S.bkf||'all';
   let list = all.filter(b=>f==='all'||(f==='key'&&b.key)||(f==='pages'&&(b.photos||[]).length));
-  if(q){ const qi = isbnDigits(q); list = list.filter(b=>[b.title,b.subtitle,authorsTxt(b),b.publisher,b.notes].join(' ').toLowerCase().includes(q) || (qi.length>=4 && [b.isbn,b.isbn13].some(x=>isbnDigits(x).includes(qi)))); }
+  const hit = {};
+  const terms = q.split(/\s+/).filter(Boolean).map(t=>t.length>3&&t.endsWith('s')?t.slice(0,-1):t);
+  const has = txt => { const l=String(txt).toLowerCase(); return terms.every(t=>l.includes(t)); };
+  if(q){ const qi = isbnDigits(q); list = list.filter(b=>{
+    if(has([b.title,b.subtitle,authorsTxt(b),b.publisher,b.notes].join(' ')) || (qi.length>=4 && [b.isbn,b.isbn13].some(x=>isbnDigits(x).includes(qi)))) return true;
+    const lines = [...String(b.contents||'').split('\n').map(l=>['Contents',l]), ...String(b.index||'').split('\n').map(l=>['Index',l])].filter(([,l])=>has(l));
+    if(lines.length){ hit[b.id]=lines.slice(0,3); return true; } return false; }); }
   const by = S.bksort||'title';
   const key = b => by==='author' ? (b.authors||[''])[0].toLowerCase() : by==='year' ? String(9999-(+b.year||0)) : b.title.replace(/^(the|a)\s+/i,'').toLowerCase();
   list.sort((a,b)=>key(a).localeCompare(key(b)) || a.title.localeCompare(b.title));
   const nKey = all.filter(b=>b.key).length, nPg = all.filter(b=>(b.photos||[]).length).length;
   return header('Search title, author or ISBN…') + `<div class="section-h"><div><span class="eyebrow">${all.length} books</span><h2>Library</h2></div>
     <div class="row" style="gap:8px"><button class="btn small" data-bkcheck>${ico('barcode')}Do I own it?</button><button class="btn ghost small" data-editbook="">${ico('plus')}Add</button></div></div>
+  <p class="muted" style="margin:-4px 0 12px;font-size:calc(14px*var(--fs))">Search also looks inside the typed contents and index of each book. <label class="linkish">Load typed text from Claude<input type="file" id="bktext" accept=".json,application/json" hidden></label></p>
   ${all.length?'':`<div class="card" style="padding:16px;margin-bottom:12px"><p style="margin-top:0">Your library is empty. Import <b>graytrees-library.json</b> (the 100 books from Handy Library) under More › Import, or add books one at a time.</p><button class="btn" data-nav="import">${ico('archive')}Import my library</button></div>`}
   <div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px">
     <div class="chips">${[['all','All',all.length],['key','Key books',nKey],['pages','With page photos',nPg]].map(([k,l,n])=>`<button class="chip" data-bkf="${k}" aria-pressed="${f===k}">${k==='key'?ico('star'):''}${l} <span class="count muted">${n}</span></button>`).join('')}</div>
     <label class="row" style="gap:6px;font-size:calc(14px*var(--fs))"><span class="muted">Sort</span><select id="bksort">${[['title','Title'],['author','Author'],['year','Newest']].map(([k,l])=>`<option value="${k}"${by===k?' selected':''}>${l}</option>`).join('')}</select></label>
   </div>
   <div class="shelf">${list.map(b=>`<button class="bk" data-book="${esc(b.id)}">${bookCover(b)}${b.key?`<span class="bk-key" title="Key book">${ico('star')}</span>`:''}
-    <b>${esc(b.title)}</b><span>${esc(authorsTxt(b))}${b.year?' · '+esc(b.year):''}</span></button>`).join('') || (all.length?'<div class="empty">No books match.</div>':'')}</div>`;
+    <b>${esc(b.title)}</b><span>${esc(authorsTxt(b))}${b.year?' · '+esc(b.year):''}</span>${hit[b.id]?`<em class="bk-hit">${hit[b.id].map(([w,l])=>`${w}: ${esc(l.trim())}`).join('<br>')}</em>`:''}</button>`).join('') || (all.length?'<div class="empty" style="grid-column:1/-1">No books match.</div>':'')}</div>`;
 }
 function viewBook(){
   const b = BOOKS().find(x=>x.id===S.book); if(!b) return go('library');
@@ -748,6 +755,9 @@ function viewBook(){
       <button class="btn ghost small" data-editbook="${esc(b.id)}">${ico('brush')}Edit</button></div>
     </div></div>
   ${b.notes?`<div class="section-h"><h2 style="font-size:calc(20px*var(--fs))">My notes</h2></div><div class="card" style="padding:14px 16px;white-space:pre-wrap">${esc(b.notes)}</div>`:''}
+  ${b.contents||b.index?`<div class="section-h"><div><span class="eyebrow">${esc(b.textNote||'Typed from your page photos')}</span><h2 style="font-size:calc(20px*var(--fs))">Contents &amp; index</h2></div></div>
+    ${b.contents?`<details class="card bk-text"><summary>Contents</summary><div>${esc(b.contents)}</div></details>`:''}
+    ${b.index?`<details class="card bk-text"><summary>Index</summary><div>${esc(b.index)}</div></details>`:''}`:''}
   <div class="section-h"><div><span class="eyebrow">Contents, index, key chapters</span><h2 style="font-size:calc(20px*var(--fs))">Page photos</h2></div>
     <label class="btn small">${ico('cam')}Add pages<input type="file" accept="image/*" multiple hidden data-bookphoto="${esc(b.id)}"></label></div>
   ${pg.length?`<div class="pgrid pages">${pg.map((id,i)=>`<figure><img src="${PH[id].src}" alt="Page photo ${i+1}" loading="lazy" data-zoom="${id}"><figcaption class="num">Page photo ${i+1}</figcaption></figure>`).join('')}</div>
@@ -896,6 +906,13 @@ document.addEventListener('change', async e=>{
   }
   if(e.target.id==='bksort'){ S.bksort=e.target.value; render(); }
   if(e.target.id==='bkphoto' && e.target.files[0]) scanPhoto(e.target.files[0]);
+  if(e.target.id==='bktext' && e.target.files[0]){
+    try{ const j = JSON.parse(await e.target.files[0].text()); let n=0, miss=0;
+      for(const u of (j.bookText||[])){ const b=BOOKS().find(x=>x.id===u.id); if(!b){ miss++; continue; } await saveRecord('books', {...b, contents:u.contents??b.contents??'', index:u.index??b.index??'', textNote:u.textNote||b.textNote||''}); n++; }
+      toast(`Typed text added to ${n} book${n===1?'':'s'}${miss?` (${miss} not found)`:''}`);
+    }catch(err){ toast('Could not read that file: '+err.message); }
+    e.target.value='';
+  }
   if(e.target.dataset.bookphoto){
     const bid=e.target.dataset.bookphoto, files=[...e.target.files]; toast(`Saving ${files.length} page${files.length>1?'s':''}…`);
     try{ const ids = await addPhotos(files, {origin:'Library'}); const b=BOOKS().find(x=>x.id===bid); await saveRecord('books', {...b, photos:[...(b.photos||[]), ...ids]}); toast(`Added ${ids.length} page${ids.length>1?'s':''}`); }catch(err){ toast('Could not add pages: '+err.message); }
