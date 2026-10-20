@@ -1,5 +1,5 @@
 // All records live in Firestore under users/{uid}/…  (one owner, one tree of data)
-//   trees, logs, photos, pots, mixes, books – one document each
+//   trees, logs, photos, pots, mixes, books, tools – one document each
 //   meta/settings                      – jobs, shortcuts, preferences
 // History is never silently lost: edits keep the previous version in `revisions`,
 // deletes only set `deleted: true` (restorable from the Recycle bin).
@@ -8,8 +8,8 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase.js';
 
-export const COLS = ['trees', 'logs', 'photos', 'pots', 'mixes', 'books', 'meta'];
-export const state = { trees: [], logs: [], photos: {}, pots: [], mixes: [], books: [], meta: {}, ready: {}, pending: false };
+export const COLS = ['trees', 'logs', 'photos', 'pots', 'mixes', 'books', 'tools', 'meta'];
+export const state = { trees: [], logs: [], photos: {}, pots: [], mixes: [], books: [], tools: [], meta: {}, ready: {}, pending: false };
 
 let uid = null;
 const unsubs = [];

@@ -11,6 +11,8 @@ export async function runImport(jsonFile, zipFiles, progress) {
 
   const newBooks = (data.books || []).filter(b => !state.books.some(x => x.id === b.id)); // never overwrite books you've since edited
   if (newBooks.length) { say('Saving your library…'); await bulkWrite('books', newBooks, (a, b) => say('Saving your library…', a, b)); }
+  const newTools = (data.tools || []).filter(t => !state.tools.some(x => x.id === t.id)); // never overwrite tools you've since edited
+  if (newTools.length) { say('Saving your tools…'); await bulkWrite('tools', newTools); }
   say('Saving trees, pots and mixes…');
   await bulkWrite('trees', data.trees || []);
   await bulkWrite('pots', data.pots || []);
@@ -42,5 +44,5 @@ export async function runImport(jsonFile, zipFiles, progress) {
     } catch (e) { failed++; console.warn('photo', p.id, e); }
     say('Photos', done, list.length);
   }
-  return { books: (data.books || []).length, trees: (data.trees || []).length, logs: (data.logs || []).length, photos: list.length - failed, failed };
+  return { tools: newTools.length, books: (data.books || []).length, trees: (data.trees || []).length, logs: (data.logs || []).length, photos: list.length - failed, failed };
 }

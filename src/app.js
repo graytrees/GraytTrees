@@ -466,6 +466,7 @@ function viewMore(){
   return header() + `<div class="section-h"><h2>More</h2></div><div class="more-list">
     <button data-nav="library">${ico('book')}<div>Library<span>${BOOKS().length?BOOKS().length+' books · do I own it? barcode check':'Your bonsai books'}</span></div></button>
     <button data-nav="pots">${ico('pot')}<div>Pots<span>${D.pots.length} recorded</span></div></button>
+    <button data-nav="tools">${ico('scissors')}<div>Tools<span>${TOOLS().length?TOOLS().length+' tools · steel, care and what they cost':'Your bonsai tools'}</span></div></button>
     <button data-nav="mixes">${ico('mix')}<div>Soil mixes<span>Recipes and a pot volume calculator</span></div></button>
     <button data-nav="past">${ico('archive')}<div>Past trees<span>${TREES.filter(t=>t.status==='past').length} trees from 2003 onwards</span></div></button>
     <button data-nav="recycle">${ico('x')}<div>Recycle bin<span>${DELETED.length} deleted entr${DELETED.length===1?'y':'ies'} you can restore</span></div></button>
@@ -550,6 +551,7 @@ function viewImport(){
   <div class="card" style="padding:16px;display:grid;gap:14px">
     <p style="margin:0">Choose the two files Claude sent you: <b>graytrees-import.json</b> (records) and the photo files <b>graytrees-photos-1.zip</b> and <b>graytrees-photos-2.zip</b> (select both together). Photos are uploaded to your Google Drive, so do this on Wi-Fi; it takes a few minutes.</p>
     <p style="margin:0" class="muted">Library: choose <b>graytrees-library.json</b> as the records file and leave the photos empty. Books already in your library are left as they are.</p>
+    <p style="margin:0" class="muted">Tools: choose <b>graytrees-tools.json</b> as the records file and leave the photos empty. Tools you've already edited are left as they are.</p>
     <label class="field"><span class="eyebrow">Records file (.json)</span><input type="file" id="impJson" accept=".json,application/json"></label>
     <label class="field"><span class="eyebrow">Photos (.zip – choose both)</span><input type="file" id="impZip" multiple accept=".zip,application/zip"></label>
     <button class="btn" data-runimport>${ico('archive')}Start import</button>
@@ -681,6 +683,69 @@ function editPot(id){
       {k:'price',label:'Price ($)',type:'number'},{k:'acquired',label:'Date bought',type:'date'},{k:'source',label:'Where from'},{k:'potter',label:'Potter'},{k:'notes',label:'Notes',type:'textarea'}],
     danger: id?`<label class="btn ghost small">${ico('cam')}Add photo<input type="file" accept="image/*" hidden data-potphoto="${id}"></label>`:'',
     onSave: async v => { if(!v.name) return 'Add a short description.'; await saveRecord('pots', v); go('pots'); toast('Pot saved'); }});
+}
+/* --- tools (Kaneshin etc.) --- */
+const TOOL_TYPES = [['cutter','Branch / concave cutter','cutter'],['knob','Knob cutter','cutter'],['wirec','Wire cutter','wire'],['pliers','Pliers','wire'],['jin','Jin pliers','wire'],
+  ['scissors','Bonsai scissors','scissors'],['trim','Trimming scissors','scissors'],['rootc','Root cutter','roots'],['carve','Jin / shari carving tool','chop'],['knife','Knife','chop'],
+  ['saw','Saw','chop'],['tweezers','Tweezers / spatula','brush'],['rake','Rake / root hook','roots'],['scoop','Soil scoop','mix'],['sieve','Sieve','mix'],['other','Other','tag']];
+const TT = Object.fromEntries(TOOL_TYPES.map(([k,l,i])=>[k,{label:l,icon:i}]));
+const RUSTCARE = 'Rusts if left damp. After each session wipe off sap and moisture, dry fully, then a thin coat of camellia oil on the blades and pivot. Light rust: rub off with a rubber rust eraser (e.g. Crean Mate), then oil. ';
+const STEELS = {
+  carbon:{label:'Carbon steel', rust:true, care:RUSTCARE+'Takes a very keen edge and is easy to resharpen.'},
+  blue:{label:'Blue steel (aogami)', rust:true, care:RUSTCARE+'High-carbon Japanese steel: holds its edge longer than plain carbon steel.'},
+  white:{label:'White steel (shirogami)', rust:true, care:RUSTCARE+'Very pure carbon steel: sharpest edge, but chips if twisted in a cut.'},
+  yellow:{label:'Yellow steel (kigami)', rust:true, care:RUSTCARE},
+  stainless:{label:'Stainless steel', rust:false, care:'Virtually rustproof, so it can stay outdoors in the wet without harm. Still wipe sap off and oil the pivot now and then. Harder to resharpen than carbon steel; best sent to a specialist.'},
+  blackss:{label:'Black-finished stainless', rust:false, care:'Stainless under a black finish: rustproof. Wipe sap off and oil the pivot now and then.'},
+  mild:{label:'Mild steel', rust:true, care:RUSTCARE+'Softer, low-carbon steel: fine for scoops and sieves, won\'t hold a fine cutting edge.'},
+  other:{label:'Other / unknown', rust:false, care:''}};
+const TOOLS = () => (state.tools||[]).filter(x=>!x.deleted);
+const yen = n => n ? '¥'+Number(n).toLocaleString('en-AU') : null;
+const aud = n => n ? 'A$'+Number(n).toLocaleString('en-AU',{minimumFractionDigits:0,maximumFractionDigits:2}) : null;
+function toolSize(x){ return [x.length?x.length+' mm':'', x.blade?'blade '+x.blade+' mm':'', x.weight?x.weight+' g':''].filter(Boolean).join(' · '); }
+function toolThumb(x, cls='thumb'){ const id=(x.photos||[]).find(i=>photo(i)); return id ? `<img class="${cls}" src="${photo(id)}" alt="" loading="lazy">` : `<div class="${cls} ph">${ico(TT[x.type]?.icon||'tag','mid')}</div>`; }
+function viewTools(){
+  const all = TOOLS(), f = S.toolf||'all', q = S.q.toLowerCase();
+  const order = Object.fromEntries(TOOL_TYPES.map(([k],i)=>[k,i]));
+  const list = all.filter(x=> f==='all' || (f==='rust') === !!STEELS[x.steel]?.rust)
+    .filter(x=>!q || [x.name,x.brand,x.model,STEELS[x.steel]?.label,x.notes].join(' ').toLowerCase().includes(q))
+    .sort((a,b)=>(order[a.type]??99)-(order[b.type]??99) || a.name.localeCompare(b.name));
+  const tYen = all.reduce((s,x)=>s+(+x.priceYen||0),0), tAud = all.reduce((s,x)=>s+(+x.priceAud||0),0), nRust = all.filter(x=>STEELS[x.steel]?.rust).length;
+  return header('Search tools…') + `<div class="section-h"><div><span class="eyebrow">${all.length} recorded</span><h2>Tools</h2></div><button class="btn small" data-edittool="">${ico('plus')}Add tool</button></div>
+  ${all.length?`<div class="statgrid" style="margin-bottom:12px"><div class="stat"><b class="num">${all.length}</b><span>tools</span></div>${tYen?`<div class="stat"><b class="num">${yen(tYen)}</b><span>paid in yen</span></div>`:''}${tAud?`<div class="stat"><b class="num">${aud(tAud)}</b><span>paid in dollars</span></div>`:''}<div class="stat"><b class="num">${nRust}</b><span>need oiling (rust-prone steel)</span></div></div>
+  <div class="chips" role="group" aria-label="Filter by steel">${[['all','All'],['rust','Carbon steels – keep oiled'],['ss','Stainless']].map(([k,l])=>`<button class="chip" data-toolf="${k}" aria-pressed="${f===k}">${l}</button>`).join('')}</div>`
+  :`<div class="card" style="padding:16px;margin-bottom:12px"><p style="margin-top:0">No tools yet. Import <b>graytrees-tools.json</b> (your Kaneshin and Wazakura orders) under More › Import, or add tools one at a time.</p><button class="btn" data-nav="import">${ico('archive')}Import my tools</button></div>`}
+  <div class="grid">${list.map(x=>`<button class="card pot" data-tool="${x.id}" style="border:0;text-align:left">${toolThumb(x)}
+    <div style="min-width:0"><h3 style="font-size:calc(17px*var(--fs));font-family:var(--body);font-weight:700">${esc(x.name)}</h3>
+    <div class="muted" style="font-size:calc(14px*var(--fs))">${[x.brand, x.model?'No.'+x.model:'', toolSize(x)].filter(Boolean).map(esc).join(' · ')}</div>
+    <div style="font-size:calc(14px*var(--fs));margin-top:4px">${x.steel?`<span class="pill ${STEELS[x.steel]?.rust?'unc':'ok'}">${esc(STEELS[x.steel]?.label||x.steel)}</span> `:''}${x.acquired?`<span class="muted">Bought ${esc(fmtD(x.acquired))}</span>`:''}</div></div></button>`).join('')||(all.length?'<div class="empty">No tools match.</div>':'')}</div>`;
+}
+function viewTool(){
+  const x = TOOLS().find(t=>t.id===S.toolId); if(!x) return viewTools();
+  const st = STEELS[x.steel], ps = (x.photos||[]).filter(i=>photo(i)), c = ps[0];
+  const rows = [['Type',TT[x.type]?.label],['Brand / maker',x.brand],['Model No.',x.model],['Length',x.length?x.length+' mm':null],['Blade length',x.blade?x.blade+' mm':null],['Weight',x.weight?x.weight+' g':null],
+    ['Steel',st?st.label+(x.steelNote?' – '+x.steelNote:''):x.steelNote],['Bought',x.acquired?fmtD(x.acquired)+' ('+ago(x.acquired).replace(' ago','')+' ago)':null],['Where from',x.source],
+    ['Price',[yen(x.priceYen),aud(x.priceAud)].filter(Boolean).join(' · ')||null],['Comments',x.notes]];
+  return `<div class="topbar"><button class="back" data-nav="tools">${ico('back')}Tools</button><span style="flex:1"></span><button class="btn small" data-edittool="${x.id}">${ico('brush')}Edit</button></div>
+  <div class="hero"><div class="hero-img">${c?`<img src="${photo(c)}" alt="${esc(x.name)}" data-zoom="${c}">`:`<div class="ph" style="height:100%">${ico(TT[x.type]?.icon||'tag','big')}</div>`}${ps.length>1?`<span class="count">${ps.length} photos</span>`:''}</div>
+  <div><span class="eyebrow">${esc(TT[x.type]?.label||'Tool')}</span><h1 style="margin:2px 0 10px">${esc(x.name)}</h1>
+  ${st&&st.care?`<div class="note"><b>Care · ${esc(st.label)}:</b> ${esc(st.care)}</div>`:''}
+  <dl class="info">${rows.filter(r=>r[1]).map(r=>`<dt>${r[0]}</dt><dd>${esc(r[1]).replace(/\n/g,'<br>')}</dd>`).join('')}</dl>
+  ${x.url?`<p><a href="${esc(x.url)}" target="_blank" rel="noopener" style="color:var(--glaze);font-weight:700">Maker's product page ↗</a></p>`:''}</div></div>
+  <div class="section-h" style="margin-top:18px"><h2 style="font-size:calc(20px*var(--fs))">Photos</h2><label class="btn small">${ico('cam')}Add photos<input type="file" accept="image/*" multiple hidden data-toolphoto="${x.id}"></label></div>
+  ${ps.length?`<div class="pgrid">${ps.map(i=>`<figure><img src="${photo(i)}" alt="" loading="lazy" data-zoom="${i}"></figure>`).join('')}</div>`:'<div class="empty">No photos yet.</div>'}`;
+}
+function editTool(id){
+  const x = id ? TOOLS().find(t=>t.id===id) : {photos:[], type:'scissors'};
+  openForm({ title: id?'Edit '+x.name:'Add a tool', value:{...x},
+    note: 'Weights and lengths are as listed by the maker. Put the yen price from the order and, if you have it, what it cost in dollars (card statement) including postage.',
+    fields:[{k:'name',label:'Name'},{k:'type',label:'Type',type:'select',options:TOOL_TYPES.map(([k,l])=>[k,l])},{k:'brand',label:'Brand / maker'},{k:'model',label:'Model No.'},
+      {k:'length',label:'Length (mm)',type:'number'},{k:'blade',label:'Blade length (mm)',type:'number'},{k:'weight',label:'Weight (g)',type:'number'},
+      {k:'steel',label:'Steel / material',type:'select',options:[['',''],...Object.entries(STEELS).map(([k,v])=>[k,v.label])]},{k:'steelNote',label:'Steel detail (grade, finish)'},
+      {k:'acquired',label:'Date bought',type:'date'},{k:'source',label:'Where from'},{k:'priceYen',label:'Price (¥)',type:'number'},{k:'priceAud',label:'Cost in A$ (optional)',type:'number'},
+      {k:'url',label:'Maker\'s product page (link)'},{k:'notes',label:'Comments',type:'textarea'}],
+    danger: id?`<button class="btn ghost small" data-deltool="${esc(id)}">${ico('x')}Remove tool</button>`:'',
+    onSave: async v => { if(!v.name) return 'Give the tool a name.'; const nid = await saveRecord('tools', v); S.toolId=nid; go('tool'); toast('Tool saved'); }});
 }
 function editMix(i){
   const m = i==null ? {parts:{}, used:[]} : MIXES[i];
@@ -859,12 +924,12 @@ async function scanPhoto(file){
 }
 
 /* --- render + events --- */
-const VIEWS = {trees:()=>viewTrees(false), past:()=>viewTrees(true), tree:viewTree, season:viewSeason, history:viewHistory, mixes:viewMixes, pots:viewPots, review:viewReview, more:viewMore, recycle:viewRecycle, settings:viewSettings, import:viewImport, how:viewHow, library:viewLibrary, book:viewBook};
+const VIEWS = {trees:()=>viewTrees(false), past:()=>viewTrees(true), tree:viewTree, season:viewSeason, history:viewHistory, mixes:viewMixes, pots:viewPots, tools:viewTools, tool:viewTool, review:viewReview, more:viewMore, recycle:viewRecycle, settings:viewSettings, import:viewImport, how:viewHow, library:viewLibrary, book:viewBook};
 export function render(){
   const v = VIEWS[S.view] || VIEWS.trees;
   $('#main').innerHTML = v();
   const navKey = S.view==='tree' ? (byId[S.tree]?.status==='past'?'past':'trees') : S.view;
-  document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.dataset.nav==='more' && ['pots','mixes','past','review','more','recycle','settings','import','how','library','book'].includes(navKey))) ? 'page':'false'); });
+  document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.dataset.nav==='more' && ['pots','tools','tool','mixes','past','review','more','recycle','settings','import','how','library','book'].includes(navKey))) ? 'page':'false'); });
   if(document.querySelector('.cmp-stage')) upgradeCmp();
   if(S.view==='settings') pendingCount().then(n=>{ const el=$('#pendingInfo'); if(el) el.textContent = n ? `${n} photo${n>1?'s':''} waiting to upload` : ''; });
 }
@@ -917,6 +982,11 @@ document.addEventListener('change', async e=>{
     const bid=e.target.dataset.bookphoto, files=[...e.target.files]; toast(`Saving ${files.length} page${files.length>1?'s':''}…`);
     try{ const ids = await addPhotos(files, {origin:'Library'}); const b=BOOKS().find(x=>x.id===bid); await saveRecord('books', {...b, photos:[...(b.photos||[]), ...ids]}); toast(`Added ${ids.length} page${ids.length>1?'s':''}`); }catch(err){ toast('Could not add pages: '+err.message); }
   }
+  if(e.target.dataset.toolphoto){
+    const tid=e.target.dataset.toolphoto, files=[...e.target.files]; toast(`Saving ${files.length} photo${files.length>1?'s':''}…`);
+    try{ const ids = await addPhotos(files, {origin:'Tools'}); const x=TOOLS().find(t=>t.id===tid); await saveRecord('tools', {...x, photos:[...(x.photos||[]), ...ids]}); toast(`Added ${ids.length} photo${ids.length>1?'s':''}`); }catch(err){ toast('Could not add photos: '+err.message); }
+    e.target.value='';
+  }
   if(e.target.dataset.potphoto){
     const pid=e.target.dataset.potphoto; const ids = await addPhotos([...e.target.files], {}); const p=D.pots.find(x=>x.id===pid); await saveRecord('pots', {...p, photos:[...ids, ...(p.photos||[])]}); toast('Photo added');
   }
@@ -925,6 +995,7 @@ async function openLightbox(id){
   const p=PH[id]; if(!p) return;
   const lb=document.createElement('div'); lb.className='lightbox';
   lb.innerHTML=`<div><img src="${p.src}" alt=""><p>${p.date?fmtD(p.date):esc(p.origin||'Date unknown')} · <button class="lb-date" data-phdate="${id}">Change date</button>${S.view==='tree'&&byId[S.tree]?.photos?.includes(id)?(byId[S.tree].cover===id?` · <button class="lb-date" data-phcover="">Go back to newest photo</button>`:coverId(byId[S.tree])===id?'':` · <button class="lb-date" data-phcover="${id}">Use as tree photo</button>`):''} · tap photo to close</p></div>`;
+  if(S.view==='tool'){ const dp=lb.querySelector('[data-phdate]'); dp.insertAdjacentHTML('afterend', ` · <button class="lb-date" data-tooldelph="${id}">Remove from this tool</button>`); }
   if(p.origin==='Library'){ lb.classList.add('page'); if(S.view==='book'){ const dp=lb.querySelector('[data-phdate]'); dp.outerHTML=`<button class="lb-date" data-pgdel="${id}">Remove this page</button>`; } }
   document.body.appendChild(lb);
   const note=document.createElement('p'); note.className='lb-full'; lb.firstChild.appendChild(note);
@@ -948,7 +1019,7 @@ async function loadFull(lb, p, interactive){
   }
 }
 document.addEventListener('click', async e=>{
-  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],.lightbox');
+  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
   if(!c) return;
   const d = c.dataset;
   if(c.classList.contains('lightbox')){ if(e.target.closest('.lb-edit,.lb-full a')) return; c.remove(); return; }
@@ -973,6 +1044,11 @@ document.addEventListener('click', async e=>{
   if('restore' in d){ await restoreLog(d.restore); toast('Restored'); return; }
   if('edittree' in d){ editTree(d.edittree||null); return; }
   if('editpot' in d){ editPot(d.editpot||null); return; }
+  if('edittool' in d){ editTool(d.edittool||null); return; }
+  if('tool' in d){ S.q=''; S.toolId=d.tool; go('tool'); return; }
+  if('toolf' in d){ S.toolf=d.toolf; render(); return; }
+  if('deltool' in d){ const x=TOOLS().find(t=>t.id===d.deltool); await saveRecord('tools', {...x, deleted:true, deletedMs:Date.now()}); $('#layer').innerHTML=''; FORM=null; go('tools'); toast('Tool removed'); return; }
+  if('tooldelph' in d){ const x=TOOLS().find(t=>t.id===S.toolId); await saveRecord('tools', {...x, photos:(x.photos||[]).filter(i=>i!==d.tooldelph)}); document.querySelector('.lightbox')?.remove(); toast('Photo removed from this tool'); return; }
   if('editmix' in d){ editMix(d.editmix===''?null:+d.editmix); return; }
   if('editentry' in d){ editEntry(d.editentry); return; }
   if('drive' in d){ try{ await getToken(true); toast('Google Drive connected'); render(); flushPending(); }catch(err){ toast('Drive not connected: '+err.message); } return; }
@@ -983,7 +1059,7 @@ document.addEventListener('click', async e=>{
     if(!j){ out.textContent='Choose the records file (.json) first.'; out.style.color='var(--rust)'; return; }
     c.disabled=true; out.style.color=''; S.importing=true;
     try{ await getToken(true); }catch(err){ out.textContent='Google Drive permission is needed for the photos: '+err.message; c.disabled=false; return; }
-    try{ const r = await runImport(j, z, (msg,a,b)=>{ out.textContent = msg + (b?` ${a} of ${b}`:''); }); S.importResult=`Done: ${r.books?r.books+' books, ':''}${r.trees} trees, ${r.logs} history entries, ${r.photos} photos${r.failed?` (${r.failed} photos failed – run the import again to retry)`:''}.`; out.textContent=S.importResult; }
+    try{ const r = await runImport(j, z, (msg,a,b)=>{ out.textContent = msg + (b?` ${a} of ${b}`:''); }); S.importResult=`Done: ${r.tools?r.tools+' tools, ':''}${r.books?r.books+' books, ':''}${r.trees} trees, ${r.logs} history entries, ${r.photos} photos${r.failed?` (${r.failed} photos failed – run the import again to retry)`:''}.`; out.textContent=S.importResult; }
     catch(err){ S.importResult='Import stopped: '+err.message+'. Run it again to continue.'; out.textContent=S.importResult; out.style.color='var(--rust)'; }
     S.importing=false; refresh(); c.disabled=false; return;
   }

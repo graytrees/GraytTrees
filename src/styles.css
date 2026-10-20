@@ -407,3 +407,7 @@ img.broken{visibility:hidden}
 .bk-text summary{padding:12px 16px;font-weight:700;cursor:pointer}
 .bk-text > div{padding:0 16px 14px;white-space:pre-line;font-size:calc(15px*var(--fs));line-height:1.55}
 .linkish{color:var(--prussian,#2c4a63);text-decoration:underline;cursor:pointer;white-space:nowrap}
+
+/* tools */
+.ph .ico.big{width:72px;height:72px}
+.ph .ico.mid{width:38px;height:38px}

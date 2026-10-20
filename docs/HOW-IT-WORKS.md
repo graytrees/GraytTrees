@@ -9,7 +9,7 @@ A private, installable web app (PWA) for Nathan's bonsai collection. Works on ph
 | App code + version history | GitHub (`graytrees/GraytTrees`) | Nathan's GitHub | The program only. No records or photos. Public. |
 | App web address | GitHub Pages | same GitHub | `https://graytrees.github.io/GraytTrees/` |
 | Sign-in | Firebase Authentication (Google) | Nathan's Google account | Only `graytshotz@gmail.com` is allowed in. |
-| Records | Cloud Firestore, Sydney region | Firebase project `graytrees` | Trees, history, pots, mixes, settings. Free tier. |
+| Records | Cloud Firestore, Sydney region | Firebase project `graytrees` | Trees, history, pots, tools, mixes, books, settings. Free tier. |
 | Photos (full size) + backups | Google Drive → `GraytTrees/` folder | Nathan's Google account | `Photos/` and `Backups/` (weekly JSON + history CSV). |
 
 ## Safety rules built in
@@ -57,3 +57,8 @@ Testing without the real cloud: `npm run test:ui` runs the app against an in-mem
 - Your bonsai books live in the `books` collection alongside the trees, so they're in the weekly backup too. The first 100 came from Handy Library (`graytrees-library.json`, imported via More › Import; re-importing never overwrites a book you've edited).
 - Each book can be starred as a key book and can carry page photos (contents, index, key chapters). Page photos go to GraytTrees/Photos on Drive like any other photo.
 - "Do I own it?" scans a barcode with the phone camera (Android Chrome) or takes a typed ISBN/title. Unknown ISBNs are looked up on Open Library so you can add the book in one tap.
+
+## Tools (More › Tools)
+- Each tool is one record in the `tools` collection (in the weekly backup too): name, type, brand, model No., length / blade / weight, steel, purchase date, where from, price in yen and optionally dollars, maker's link, comments and photos.
+- The steel choice brings up the matching care note (carbon steels: dry and oil with camellia oil; stainless: rustproof, harder to resharpen). The list can be filtered to the rust-prone tools.
+- The first nine came from Nathan's Kaneshin (2021, 2024) and Wazakura (2025) orders via `graytrees-tools.json` (More › Import). Prices are kept out of this public code: they live only in that file and in Firestore.
