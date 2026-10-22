@@ -54,7 +54,7 @@ function routineDates(r, y, m){ const out=[]; let d=parseD(r.first); while(d.get
 function nextSat(){const d=new Date(TODAY);d.setDate(d.getDate()+((6-d.getDay()+7)%7||7));return 'Next: Sat '+d.getDate()+' '+MONTHS[d.getMonth()];}
 
 /* --- helpers --- */
-const evText = t => t.every ? t.every[0]+'–'+t.every[1] : String((GUIDE[t.group]||GUIDE.other).every);
+const evText = t => t.every ? t.every[0]+'–'+t.every[1]+' years' : ((n=>n===1?'year':n+' years')((GUIDE[t.group]||GUIDE.other).every));
 const photo = id => PH[id] ? PH[id].src : null;
 // Tree photo: the one you pinned, otherwise the most recent dated photo
 let PDATE = {};
@@ -192,7 +192,7 @@ function viewTree(){
         <div class="fact"><span class="k">${ico('wire')}Last wired</span><div class="v num">${lw?fmtD(lw.date,lw.precision).replace(/^\d+ /,''):'—'}</div><div class="s muted">${lw?ago(lw.date):''}</div></div>
         <div class="fact"><span class="k">${ico('history')}On record</span><div class="v num">${L.length} entries</div><div class="s muted">since ${L.length?parseD(L[L.length-1].date).getFullYear():'—'}</div></div>
       </div>
-      ${r?`<p style="margin:14px 0 0"><span class="pill ${r.cls}">${esc(r.text)}</span> <span class="muted" style="font-size:calc(14px*var(--fs))">Repot every ${evText(t)} years${t.every?' (older, larger tree)':' for '+esc(GUIDE[t.group].name.toLowerCase())}</span></p>`:''}
+      ${r?`<p style="margin:14px 0 0"><span class="pill ${r.cls}">${esc(r.text)}</span> <span class="muted" style="font-size:calc(14px*var(--fs))">Repot every ${evText(t)}${t.every?' (older, larger tree)':' for '+esc(GUIDE[t.group].name.toLowerCase())}</span></p>`:''}
     </div>
   </div>
   <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button role="tab" data-tab="${k}" aria-selected="${S.tab===k}">${l}${k==='history'?` <span class="num">(${L.length})</span>`:''}</button>`).join('')}</div>
@@ -326,7 +326,7 @@ function tabCal(t){
 function tabRem(t){
   const g = GUIDE[t.group]||GUIDE.other, r = t.status==='past'?null:repotStatus(t);
   return `<div class="more-list">
-    ${r?`<button>${ico('pot')}<div>Repot every ${evText(t)} years<span>${esc(r.text)}${r.last?' · last '+fmtD(r.last.date):''}</span></div></button>`:''}
+    ${r?`<button>${ico('pot')}<div>Repot every ${evText(t)}<span>${esc(r.text)}${r.last?' · last '+fmtD(r.last.date):''}</span></div></button>`:''}
     <button>${ico('scissors')}<div>Maintenance prune in season<span>${(g.rows.prune||g.rows.struct||[]).map(m=>MONTHS[m-1]).join(', ')||'—'}</span></div></button>
     <button>${ico('bell')}<div>Send to TickTick<span>Reminders will go to your Bonsai list in TickTick once the app is live</span></div></button>
   </div>`;
@@ -378,7 +378,7 @@ function viewSeason(){
     return `<div class="section-h"><h2 style="font-size:calc(20px*var(--fs))">${esc(c.name)} <span class="muted num" style="font-family:var(--body);font-size:calc(15px*var(--fs));font-weight:400">${ids.length} tree${ids.length>1?'s':''}</span></h2></div><p class="muted" style="margin:-4px 0 10px;font-size:calc(15px*var(--fs))">${esc(c.blurb)}${keys.includes('azalea')?' Azaleas: '+(azAfter?'some are set to repot after flowering (Oct–Nov).':'repotting before flowering means pinching off that spring\'s flowers; switch a tree to after-flowering on its edit screen.'):''}</p>
     ${keys.length>1?`<div class="chips" role="group" aria-label="${esc(c.name)} species"><button class="chip" data-calsp="${c.id}:" aria-pressed="${!sp}">Repot timing</button>${keys.map(k=>`<button class="chip" data-calsp="${c.id}:${k}" aria-pressed="${sp===k}">${esc(GUIDE[k].name)} <span class="num muted">${live(k).length}</span></button>`).join('')}</div>`:''}
     ${keys.length===1 ? calTable(GUIDE[keys[0]].rows, myRepotMonths(ids)) : calTable(rows, myRepotMonths(ids2))}
-    ${sp?`<p class="muted" style="font-size:calc(14px*var(--fs));margin:6px 0 0">Repot every ${GUIDE[sp].every} years${sp==='pine'?' (3–5 for the oldest)':''}.</p>`:''}`;}).join('')}
+    ${sp?`<p class="muted" style="font-size:calc(14px*var(--fs));margin:6px 0 0">Repot every ${GUIDE[sp].every===1?'year':GUIDE[sp].every+' years'}${sp==='pine'?' (3–5 for the oldest)':''}.</p>`:''}`;}).join('')}
   <p class="muted" style="font-size:calc(14px*var(--fs))">The faint bars are the optional autumn window: urgent or overdue repots and second-flush pines, light root work only. Flag a tree for it on its edit screen.</p>`;
 }
 

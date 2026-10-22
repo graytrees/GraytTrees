@@ -8,7 +8,7 @@ export const GUIDE = {  /* timing from Nathan's monthly calendar, Red Dragon new
   juniper:{name:'Junipers', every:3, rows:{repot:[7,8], autumn:[3,4,5], struct:[6,7,8], prune:[9,10,11,12,1,2,3], wire:[6,7], clean:[3,9], fert:[3,4,5,9,10,11,12,1,2]}},
   fig:{name:'Figs', every:2, rows:{repot:[10,11,12], autumn:[3,4], prune:[9,10,11,12,1,2,3], defol:[12], wire:[11,12,1,2], fert:[3,4,5,9,10,11]}},
   cler:{name:'Clerodendrums', every:2, rows:{repot:[10,11,12], autumn:[3,4], prune:[10,11,12,1,2,3], wire:[10,11,12,1,2], fert:[3,4,5,9,10,11]}},
-  swamp:{name:'Swamp cypress', every:2, rows:{repot:[7,8], autumn:[3,4,5], struct:[7,8], prune:[10,11,12,1,2,3], wire:[6,7], fert:[9,10,11,12,1,2,3]}},
+  swamp:{name:'Swamp cypress', every:1, rows:{repot:[7,8], autumn:[3,4,5], struct:[7,8], prune:[10,11,12,1,2,3], wire:[6,7], fert:[9,10,11,12,1,2,3]}},
   podo:{name:'Buddhist pine', every:3, rows:{repot:[7,8], autumn:[3,4,5], prune:[9,10,11,12,1,2,3,4], wire:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
   mela:{name:'Melaleuca', every:2, rows:{repot:[8,9,10], autumn:[3,4,5], prune:[10,11,12,1,2,3], fert:[3,4,5,9,10,11]}},
   bougie:{name:'Bougainvillea', every:2, rows:{repot:[10,11,12], autumn:[3,4], prune:[1,2,3], wire:[11,12,1,2], potash:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
