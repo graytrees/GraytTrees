@@ -182,20 +182,23 @@ function homeTop(){
       (byTask[task] ||= []).push({name:g.name, done});
     }
   }
-  const order = ['struct','wire','defol','clean','prune','potash','fert'];
-  const tasks = Object.entries(byTask).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
+  // seasonal work only: feeding / potash are routines (TickTick), not seasonal jobs
+  const order = ['struct','wire','defol','clean','prune'];
+  const tasks = Object.entries(byTask).filter(([k])=>order.includes(k)).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
   const nDone = tasks.filter(([,gs])=>gs.every(g=>g.done)).length;
-  const monthCard = `<div class="card home-card"><div class="home-h"><b>${MONTHS_L[NOW_M-1]} jobs</b><span>${tasks.length&&nDone?`${nDone} of ${tasks.length} done`:''}</span></div>
-    ${tasks.length?`<ul class="todo">${tasks.map(([task,gs])=>`<li${gs.every(g=>g.done)?' class="done"':''}><b>${esc(TASKS[task].label)}</b> – ${groupList(gs)}${task==='fert'?' (fortnightly)':''}</li>`).join('')}</ul>`:'<p class="muted" style="margin:4px 0 0">A quiet month: keep up the routines.</p>'}
-    <button class="linkbtn" data-nav="season">${ico('season')}Season calendar</button></div>`;
-  // on this day: a photo from this month in an earlier year (changes daily)
-  const olds = Object.values(state.photos).filter(p => p.date && p.date.length>=7 && +p.date.slice(5,7)===NOW_M && +p.date.slice(0,4) < TODAY.getFullYear() && (p.trees||[]).some(id=>byId[id] && byId[id].status!=='past') && PH[p.id]);
-  let otd = '';
-  if(olds.length){ olds.sort((a,b)=>a.id.localeCompare(b.id)); const p = olds[(TODAY.getFullYear()*400 + NOW_M*31 + TODAY.getDate()) % olds.length]; const t = byId[(p.trees||[]).find(id=>byId[id])];
-    const yrs = TODAY.getFullYear() - +p.date.slice(0,4);
-    otd = `<button class="card home-card otd" data-otd="${p.id}" data-otdtree="${t.id}"><img src="${PH[p.id].src}" alt=""><span><span class="home-tag" style="margin:0">On this day · ${p.date.slice(0,4)}</span><b>${esc(t.name)}</b><span class="muted">${yrs} year${yrs>1?'s':''} ago${p.date.length===10?' ('+fmtD(p.date)+')':''} · tap to compare with today</span></span></button>`; }
-  return `<div class="home-band">${ukiyoBand()}<span>${MONTHS_L[NOW_M-1]} · ${season} in Brisbane</span></div>
-  <div class="home-grid"><div>${repotCard}${satCard}${monthCard}</div><div>${otd}</div></div>`;
+  const monthCard = `<div class="card home-card jobs"><div class="home-h"><b>${MONTHS_L[NOW_M-1]}</b><span>${tasks.length&&nDone?`${nDone}/${tasks.length} done`:'seasonal work'}</span></div>
+    ${tasks.length?`<ul class="todo">${tasks.map(([task,gs])=>`<li${gs.every(g=>g.done)?' class="done"':''}><b>${esc(TASKS[task].label)}${gs.every(g=>g.done)?' ✓':''}</b><span>${groupList(gs).replace(/ ✓$/,'')}</span></li>`).join('')}</ul>`:'<p class="muted" style="margin:4px 0 0">No seasonal work this month.</p>'}
+    <button class="linkbtn" data-nav="season">${ico('season')}Calendar</button></div>`;
+  // featured tree: a different tree each time the app is opened, shown with its most recent photo
+  const withPh = active.filter(t=>t.photos.some(id=>PH[id]));
+  if(!S.feature || !withPh.some(t=>t.id===S.feature)) S.feature = withPh.length ? withPh[Math.floor(Math.random()*withPh.length)].id : null;
+  let feature = '';
+  if(S.feature){ const t = byId[S.feature]; const when = id => PH[id].date || PDATE[id] || '';
+    const pid = t.photos.filter(id=>PH[id]).sort((a,b)=>when(b).localeCompare(when(a)))[0], p = PH[pid];
+    feature = `<button class="feature" data-tree="${t.id}" aria-label="${esc(t.name)}"><img src="${p.src}" alt="" ${p.driveId?`data-full="${p.driveId}"`:''}><span class="cap"><b>${esc(t.name)}</b><span>${esc(t.common||'')}${when(pid)?' · '+fmtD(when(pid)):''}</span></span></button>`; }
+  return `<div class="home-band">${ukiyoBand()}<span><b>${MONTHS_L[NOW_M-1]}</b>${season} in Brisbane</span></div>
+  ${repotCard}${satCard}
+  <div class="home-grid${feature?'':' solo'}"><div>${monthCard}</div>${feature?`<div>${feature}</div>`:''}</div>`;
 }
 function treeCard(t){
   const lr = lastOf(t.id,['repot']), lp = lastOf(t.id,['prune','hard']), r = t.status==='past'?null:repotStatus(t);
@@ -984,6 +987,7 @@ export function render(){
   const navKey = S.view==='tree' ? (byId[S.tree]?.status==='past'?'past':'trees') : S.view;
   document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.dataset.nav==='more' && ['pots','tools','tool','mixes','past','review','more','recycle','settings','import','how','library','book'].includes(navKey))) ? 'page':'false'); });
   if(document.querySelector('.cmp-stage')) upgradeCmp();
+  const fimg=document.querySelector('.feature img[data-full]'); if(fimg && hasDriveToken() && navigator.onLine) fileUrl(fimg.dataset.full).then(u=>{ if(fimg.isConnected) fimg.src=u; }).catch(()=>{});
   if(S.driveNeed && navigator.onLine){ const n=S.driveNeed, b=document.createElement('div'); b.className='drive-need'; b.setAttribute('role','status');
     b.innerHTML=`${ico('archive')}<span>${[n.photos?`${n.photos} photo${n.photos>1?'s':''}`:'', n.backup?(n.photos?'the weekly backup':'Weekly backup'):''].filter(Boolean).join(' and ')} waiting for Drive</span><button class="btn small" data-drive title="Google's Drive sign-in times out after an hour">Reconnect</button>`;
     $('#main').prepend(b); }
