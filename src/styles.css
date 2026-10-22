@@ -452,3 +452,16 @@ body:has(.drive-need) .toast{bottom:calc(196px + env(safe-area-inset-bottom,0px)
 .otd > span{min-width:0;display:flex;flex-direction:column;gap:1px}
 .otd .muted{font-size:calc(13.5px*var(--fs))}
 .cmp{scroll-margin-top:84px}
+.todo{list-style:none;margin:2px 0 0;padding:0}
+.todo li{position:relative;padding:5px 0 5px 16px;font-size:calc(15px*var(--fs));line-height:1.4}
+.todo li::before{content:'';position:absolute;left:2px;top:13px;width:6px;height:6px;border-radius:50%;background:var(--moss)}
+.todo li b{font-weight:700}
+.todo li span{color:var(--muted)}
+.todo li span.d{color:var(--moss)}
+.todo li.done b{color:var(--muted)}
+.home-card .linkbtn{margin-top:2px}
+.todo li{color:var(--muted)}
+.todo li b{color:var(--ink)}
+.todo li i{font-style:normal}.todo li i.d{color:var(--moss)}
+.todo li.done{color:var(--moss)}.todo li.done b{color:var(--muted)}
+.home-band{height:48px}

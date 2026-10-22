@@ -149,9 +149,9 @@ function lastKind(kinds, trees){ return LOGS.find(l => S.ticks[l.id]!=='tick' &&
 function groupList(gs){
   const nGroups = new Set(TREES.filter(t=>t.status!=='past').map(t=>t.group).filter(g=>g!=='other')).size;
   const all = gs.every(g=>g.done), some = gs.filter(g=>g.done);
-  if(gs.length===nGroups && (all || !some.length)) return 'All trees'+(all?' ✓':'');
-  if(gs.length>=6 && !some.length){ const inc=new Set(gs.map(g=>g.name)); const miss=Object.entries(GUIDE).filter(([k,v])=>k!=='other' && !inc.has(v.name) && TREES.some(t=>t.status!=='past'&&t.group===k)).map(([,v])=>v.name.toLowerCase()); if(miss.length<=3) return 'All except '+miss.join(', '); }
-  return gs.map(g=>`<i class="${g.done?'d':''}">${esc(g.name)}${g.done?' ✓':''}</i>`).join(' · ');
+  if(gs.length===nGroups && (all || !some.length)) return 'all trees'+(all?' ✓':'');
+  if(gs.length>=6 && !some.length){ const inc=new Set(gs.map(g=>g.name)); const miss=Object.entries(GUIDE).filter(([k,v])=>k!=='other' && !inc.has(v.name) && TREES.some(t=>t.status!=='past'&&t.group===k)).map(([,v])=>v.name.toLowerCase()); if(miss.length<=3) return 'all except '+miss.join(', '); }
+  return gs.map(g=>`<i class="${g.done?'d':''}">${esc(g.name.toLowerCase())}${g.done?' ✓':''}</i>`).join(', ');
 }
 function homeTop(){
   const active = TREES.filter(t=>t.status!=='past');
@@ -185,15 +185,9 @@ function homeTop(){
   const order = ['struct','wire','defol','clean','prune','potash','fert'];
   const tasks = Object.entries(byTask).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
   const nDone = tasks.filter(([,gs])=>gs.every(g=>g.done)).length;
-  const monthCard = `<div class="card home-card"><div class="home-h"><b>This month</b><span>${tasks.length?`${nDone} of ${tasks.length} done`:''}</span></div>
-    ${tasks.map(([task,gs])=>{ const all=gs.every(g=>g.done); return `<div class="chk${all?' on':''}">${ico(all?'check':KIND_ICON[TASK_KINDS[task]?.[0]]||'leaf')}<span>${esc(TASKS[task].label)}<small>${groupList(gs)}</small></span></div>`; }).join('') || '<p class="muted" style="margin:4px 0 0">A quiet month: keep up the routines.</p>'}
+  const monthCard = `<div class="card home-card"><div class="home-h"><b>${MONTHS_L[NOW_M-1]} jobs</b><span>${tasks.length&&nDone?`${nDone} of ${tasks.length} done`:''}</span></div>
+    ${tasks.length?`<ul class="todo">${tasks.map(([task,gs])=>`<li${gs.every(g=>g.done)?' class="done"':''}><b>${esc(TASKS[task].label)}</b> – ${groupList(gs)}${task==='fert'?' (fortnightly)':''}</li>`).join('')}</ul>`:'<p class="muted" style="margin:4px 0 0">A quiet month: keep up the routines.</p>'}
     <button class="linkbtn" data-nav="season">${ico('season')}Season calendar</button></div>`;
-  // recently worked on (skips feed/spray days that cover every tree)
-  const seen = new Set(), recent = [];
-  for(const l of LOGS){ if(S.ticks[l.id]==='tick' || l.actions.every(a=>['fert','fung','insect'].includes(kindOf(a)))) continue;
-    for(const id of l.trees){ if(seen.has(id) || !byId[id] || byId[id].status==='past') continue; seen.add(id); recent.push({t:byId[id], l}); }
-    if(recent.length>=8) break; }
-  const recentRow = recent.length ? `<div class="home-tag">Recently worked on</div><div class="recent">${recent.slice(0,8).map(({t,l})=>`<button data-tree="${t.id}">${thumb(t,'')}<b>${esc(t.name)}</b><span>${esc(ACT[l.actions[0]]?.label||'Worked on')} · ${agoShort(l.date)}</span></button>`).join('')}</div>` : '';
   // on this day: a photo from this month in an earlier year (changes daily)
   const olds = Object.values(state.photos).filter(p => p.date && p.date.length>=7 && +p.date.slice(5,7)===NOW_M && +p.date.slice(0,4) < TODAY.getFullYear() && (p.trees||[]).some(id=>byId[id] && byId[id].status!=='past') && PH[p.id]);
   let otd = '';
@@ -201,7 +195,7 @@ function homeTop(){
     const yrs = TODAY.getFullYear() - +p.date.slice(0,4);
     otd = `<button class="card home-card otd" data-otd="${p.id}" data-otdtree="${t.id}"><img src="${PH[p.id].src}" alt=""><span><span class="home-tag" style="margin:0">On this day · ${p.date.slice(0,4)}</span><b>${esc(t.name)}</b><span class="muted">${yrs} year${yrs>1?'s':''} ago${p.date.length===10?' ('+fmtD(p.date)+')':''} · tap to compare with today</span></span></button>`; }
   return `<div class="home-band">${ukiyoBand()}<span>${MONTHS_L[NOW_M-1]} · ${season} in Brisbane</span></div>
-  <div class="home-grid"><div>${repotCard}${satCard}${monthCard}</div><div>${recentRow}${otd}</div></div>`;
+  <div class="home-grid"><div>${repotCard}${satCard}${monthCard}</div><div>${otd}</div></div>`;
 }
 function treeCard(t){
   const lr = lastOf(t.id,['repot']), lp = lastOf(t.id,['prune','hard']), r = t.status==='past'?null:repotStatus(t);
