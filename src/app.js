@@ -128,14 +128,7 @@ function viewTrees(past=false){
   const histHits = S.q && !past ? LOGS.filter(l => l.text.toLowerCase().includes(S.q.toLowerCase())).slice(0,8) : [];
   return header() + (past?'':proto()) + (past ? `<div class="section-h"><div><span class="eyebrow">Kept for the record</span><h2>Past trees</h2></div><span class="muted num">${list.length}</span></div><p class="muted" style="margin-top:-6px">Trees that died, were given away or left bonsai. Their full history stays searchable.</p>` : `
   ${(()=>{ const b=state.meta.backup, days=b?.lastMs?Math.floor((Date.now()-b.lastMs)/864e5):null; return past||(days!==null&&days<=8) ? '' : `<div class="card" style="padding:12px 16px;margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:180px">${ico('archive')} <b>${days===null?'No backup yet':'Last backup '+days+' days ago'}</b><span class="muted" style="display:block;font-size:calc(14px*var(--fs))">The weekly backup to Drive hasn't run${state.meta.backupError?' ('+esc(state.meta.backupError)+')':''}.</span></span><button class="btn small" data-backup>${ico('archive')}Back up now</button></div>`; })()}
-  <section class="season" aria-label="This month">${ukiyoBand()}
-    <div><span class="eyebrow">${MONTHS_L[NOW_M-1]} in Brisbane · ${SEASONS.find(s=>s[1].includes(NOW_M))[0].toLowerCase()}</span>
-      <h2 style="margin-top:4px">${due.length ? due.length+' tree'+(due.length>1?'s':'')+' ready to repot' : 'No trees need repotting yet'}</h2>
-      ${due.length?'':`<p class="muted" style="margin:8px 0 0;font-size:calc(15px*var(--fs))">Each species has a repot interval (pines every 3 years, elms and figs every 2). None of your trees have reached theirs yet.</p>`}
-      <p class="muted" style="margin:8px 0 0;font-size:calc(15px*var(--fs))">Good work this month: ${workNow.slice(0,4).map(w=>`<b style="color:var(--ink)">${esc(w[0])}</b> ${esc(w[1].join(', ').toLowerCase())}`).join(' · ')}.</p>
-      <button class="btn ghost small" style="margin-top:12px" data-nav="season">${ico('season')}Open season calendar</button></div>
-    <div class="due-list">${due.length ? due.slice(0,5).map(({t,r})=>`<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">Last repot ${r.last?fmtD(r.last.date):'—'} · every ${evText(t)} yrs</span></span><span class="pill due">Due</span></button>`).join('') : `<span class="eyebrow">Next repots coming up</span>${upcoming.map(({t,r})=>`<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">Last repot ${fmtD(r.last.date)} · every ${evText(t)} yrs</span></span><span class="pill ok num">${MONTHS[r.next.getMonth()]} ${r.next.getFullYear()}</span></button>`).join('')}`}</div>
-  </section>`) + `
+  ${homeTop()}`) + `
   <div class="section-h"><h2>${past?'':'Collection'}</h2><div class="row">${past?'':`<button class="btn small" data-edittree="">${ico('plus')}Add tree</button>`}
     <div class="seg" role="group" aria-label="Layout">${[['cards','Cards'],['gallery','Gallery'],['list','List']].map(([k,l])=>`<button data-layout="${k}" aria-pressed="${S.layout===k}">${l}</button>`).join('')}</div>
     <span class="row" style="gap:8px;flex-wrap:nowrap"><label class="muted" for="sort" style="font-size:calc(14px*var(--fs))">Sort</label>
@@ -144,6 +137,71 @@ function viewTrees(past=false){
   <p class="muted num" style="font-size:calc(14px*var(--fs));margin:10px 0">${list.length} ${past?'past':''} tree${list.length===1?'':'s'}${S.q?` matching “${esc(S.q)}”`:''}</p>
   ${!list.length ? '<div class="empty">No trees match.</div>' : S.layout==='gallery' ? `<div class="gallery">${list.map(t=>galleryTile(t)).join('')}</div>` : S.layout==='list' ? `<div class="card tlist">${list.map(t=>listRow(t)).join('')}</div>` : `<div class="grid">${list.map(t=>treeCard(t)).join('')}</div>`}
   ${histHits.length?`<div class="section-h"><h2>In history</h2></div>${histHits.map(l=>entry(l,true)).join('')}`:''}`;
+}
+
+/* --- home screen: what's useful today (repots only when they're actually due) --- */
+const TASK_KINDS = {prune:['prune','hard'], struct:['hard','style','prune'], wire:['wire'], defol:['defol'], clean:['prune','clean','note'], fert:['fert'], potash:['fert','potash']};
+const ROUTINE_KIND = {'Fertilise Bonsai':['fert'], 'Spray Maverick (insecticide)':['insect'], 'Spray Mancozeb (fungicide)':['fung']};
+const dayStart = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const daysAgo = s => Math.round((dayStart(TODAY) - parseD(s)) / 864e5);
+const agoShort = s => { const n=daysAgo(s); return n<=0?'today':n===1?'yesterday':n<14?n+' d':n<60?Math.round(n/7)+' wk':Math.round(n/30.4)+' mo'; };
+function lastKind(kinds, trees){ return LOGS.find(l => S.ticks[l.id]!=='tick' && l.actions.some(a=>kinds.includes(kindOf(a))) && (!trees || l.trees.some(id=>trees.includes(id)))); }
+function groupList(gs){
+  const nGroups = new Set(TREES.filter(t=>t.status!=='past').map(t=>t.group).filter(g=>g!=='other')).size;
+  const all = gs.every(g=>g.done), some = gs.filter(g=>g.done);
+  if(gs.length===nGroups && (all || !some.length)) return 'All trees'+(all?' ✓':'');
+  if(gs.length>=6 && !some.length){ const inc=new Set(gs.map(g=>g.name)); const miss=Object.entries(GUIDE).filter(([k,v])=>k!=='other' && !inc.has(v.name) && TREES.some(t=>t.status!=='past'&&t.group===k)).map(([,v])=>v.name.toLowerCase()); if(miss.length<=3) return 'All except '+miss.join(', '); }
+  return gs.map(g=>`<i class="${g.done?'d':''}">${esc(g.name)}${g.done?' ✓':''}</i>`).join(' · ');
+}
+function homeTop(){
+  const active = TREES.filter(t=>t.status!=='past');
+  const ym = TODAY.getFullYear()+'-'+String(NOW_M).padStart(2,'0');
+  const season = SEASONS.find(x=>x[1].includes(NOW_M))[0].toLowerCase();
+  // repots: only trees due now, overdue, or due within about six weeks
+  const soon = active.map(t=>({t, r:repotStatus(t)})).filter(({r})=> r.due || r.cls==='late' || (r.next && (r.next - TODAY) < 42*864e5));
+  const repotCard = soon.length ? `<div class="card home-card"><div class="home-h"><b>Repots</b><span>${soon.length} tree${soon.length>1?'s':''}</span></div>${soon.map(({t,r})=>`<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">Last repot ${r.last?fmtD(r.last.date):'—'} · every ${evText(t)}</span></span><span class="pill ${r.cls}">${r.due?'Due now':r.cls==='late'?'Overdue':MONTHS[r.next.getMonth()]}</span></button>`).join('')}</div>` : '';
+  // Saturday routine (Fridays and Saturdays only)
+  let satCard = '';
+  if([5,6].includes(TODAY.getDay())){
+    const sat = dayStart(TODAY); sat.setDate(sat.getDate() + (6-sat.getDay()));
+    const on = ROUTINES.filter(r=>routineDates(r, sat.getFullYear(), sat.getMonth()+1).some(d=>d.getTime()===sat.getTime()));
+    const rows = on.map(r=>{ const l=lastKind(ROUTINE_KIND[r.name]||[]); const done = l && daysAgo(l.date) <= 2; return `<div class="chk${done?' on':''}">${ico(done?'check':r.icon)}<span>${esc(r.name)}<small>${done?'Logged '+fmtD(l.date):l?'Last logged '+fmtD(l.date):'Not logged before'}</small></span></div>`; }).join('');
+    const nextUp = () => { const fut = ROUTINES.map(r=>{ const all=[...routineDates(r,sat.getFullYear(),sat.getMonth()+1), ...routineDates(r,...addMonths(sat.getFullYear(),sat.getMonth()+1,1))]; return [r, all.find(d=>d>sat)]; }).filter(x=>x[1]).sort((a,b)=>a[1]-b[1])[0]; return fut ? `${fut[0].name} on Sat ${fut[1].getDate()} ${MONTHS[fut[1].getMonth()]}` : ''; };
+    satCard = `<div class="card home-card sat"><div class="home-h"><b>${TODAY.getDay()===6?'Today':'Tomorrow'} · Saturday routine</b></div>${rows || `<p class="muted" style="margin:4px 0 0">Nothing scheduled this Saturday. Next: ${esc(nextUp())}.</p>`}</div>`;
+  }
+  // this month's jobs, ticked off from what's been logged this month
+  const monthLogs = LOGS.filter(l => (l.date||'').startsWith(ym) && S.ticks[l.id]!=='tick');
+  const byTask = {};
+  for(const [k,g] of Object.entries(GUIDE)){
+    if(k==='other') continue;
+    const ts = active.filter(t=>t.group===k); if(!ts.length) continue;
+    for(const [task, ms] of Object.entries(g.rows)){
+      if(['repot','autumn'].includes(task) || !ms.includes(NOW_M)) continue;
+      const ids = ts.map(t=>t.id), kinds = TASK_KINDS[task]||[task];
+      const done = monthLogs.some(l => l.trees.some(id=>ids.includes(id)) && l.actions.some(a=>kinds.includes(kindOf(a))));
+      (byTask[task] ||= []).push({name:g.name, done});
+    }
+  }
+  const order = ['struct','wire','defol','clean','prune','potash','fert'];
+  const tasks = Object.entries(byTask).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
+  const nDone = tasks.filter(([,gs])=>gs.every(g=>g.done)).length;
+  const monthCard = `<div class="card home-card"><div class="home-h"><b>This month</b><span>${tasks.length?`${nDone} of ${tasks.length} done`:''}</span></div>
+    ${tasks.map(([task,gs])=>{ const all=gs.every(g=>g.done); return `<div class="chk${all?' on':''}">${ico(all?'check':KIND_ICON[TASK_KINDS[task]?.[0]]||'leaf')}<span>${esc(TASKS[task].label)}<small>${groupList(gs)}</small></span></div>`; }).join('') || '<p class="muted" style="margin:4px 0 0">A quiet month: keep up the routines.</p>'}
+    <button class="linkbtn" data-nav="season">${ico('season')}Season calendar</button></div>`;
+  // recently worked on (skips feed/spray days that cover every tree)
+  const seen = new Set(), recent = [];
+  for(const l of LOGS){ if(S.ticks[l.id]==='tick' || l.actions.every(a=>['fert','fung','insect'].includes(kindOf(a)))) continue;
+    for(const id of l.trees){ if(seen.has(id) || !byId[id] || byId[id].status==='past') continue; seen.add(id); recent.push({t:byId[id], l}); }
+    if(recent.length>=8) break; }
+  const recentRow = recent.length ? `<div class="home-tag">Recently worked on</div><div class="recent">${recent.slice(0,8).map(({t,l})=>`<button data-tree="${t.id}">${thumb(t,'')}<b>${esc(t.name)}</b><span>${esc(ACT[l.actions[0]]?.label||'Worked on')} · ${agoShort(l.date)}</span></button>`).join('')}</div>` : '';
+  // on this day: a photo from this month in an earlier year (changes daily)
+  const olds = Object.values(state.photos).filter(p => p.date && p.date.length>=7 && +p.date.slice(5,7)===NOW_M && +p.date.slice(0,4) < TODAY.getFullYear() && (p.trees||[]).some(id=>byId[id] && byId[id].status!=='past') && PH[p.id]);
+  let otd = '';
+  if(olds.length){ olds.sort((a,b)=>a.id.localeCompare(b.id)); const p = olds[(TODAY.getFullYear()*400 + NOW_M*31 + TODAY.getDate()) % olds.length]; const t = byId[(p.trees||[]).find(id=>byId[id])];
+    const yrs = TODAY.getFullYear() - +p.date.slice(0,4);
+    otd = `<button class="card home-card otd" data-otd="${p.id}" data-otdtree="${t.id}"><img src="${PH[p.id].src}" alt=""><span><span class="home-tag" style="margin:0">On this day · ${p.date.slice(0,4)}</span><b>${esc(t.name)}</b><span class="muted">${yrs} year${yrs>1?'s':''} ago${p.date.length===10?' ('+fmtD(p.date)+')':''} · tap to compare with today</span></span></button>`; }
+  return `<div class="home-band">${ukiyoBand()}<span>${MONTHS_L[NOW_M-1]} · ${season} in Brisbane</span></div>
+  <div class="home-grid"><div>${repotCard}${satCard}${monthCard}</div><div>${recentRow}${otd}</div></div>`;
 }
 function treeCard(t){
   const lr = lastOf(t.id,['repot']), lp = lastOf(t.id,['prune','hard']), r = t.status==='past'?null:repotStatus(t);
@@ -1024,7 +1082,7 @@ async function loadFull(lb, p, interactive){
   }
 }
 document.addEventListener('click', async e=>{
-  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
+  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-otd],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
   if(!c) return;
   const d = c.dataset;
   if(c.classList.contains('lightbox')){ if(e.target.closest('.lb-edit,.lb-full a')) return; c.remove(); return; }
@@ -1096,6 +1154,7 @@ document.addEventListener('click', async e=>{
   if('log' in d){ openLog(d.log||null); return; }
   if('zoom' in d){ openLightbox(d.zoom); return; }
   if('nav' in d){ S.q=''; S.group='all'; go(d.nav); return; }
+  if('otd' in d){ S.newLog=null; S.cmp={tree:d.otdtree, a:d.otd, b:null, pick:null}; go('tree',{tree:d.otdtree, tab:'photos'}); setTimeout(()=>document.querySelector('.cmp')?.scrollIntoView({behavior:'smooth',block:'start'}),60); return; }
   if('tree' in d){ S.newLog=null; go('tree',{tree:d.tree, tab:'info'}); return; }
   if('back' in d){ go(byId[S.tree]?.status==='past'?'past':'trees'); return; }
   if('tab' in d){ S.tab=d.tab; S.newLog=null; render(); return; }
