@@ -186,7 +186,7 @@ function homeTop(){
   const order = ['struct','wire','defol','clean','prune'];
   const tasks = Object.entries(byTask).filter(([k])=>order.includes(k)).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
   const nDone = tasks.filter(([,gs])=>gs.every(g=>g.done)).length;
-  const monthCard = `<div class="card home-card jobs"><div class="home-h"><b>${MONTHS_L[NOW_M-1]}</b><span>${tasks.length&&nDone?`${nDone}/${tasks.length} done`:'seasonal work'}</span></div>
+  const monthCard = `<div class="card home-card jobs"><div class="home-h"><b>Seasonal jobs</b><span>${tasks.length&&nDone?`${nDone}/${tasks.length} done`:''}</span></div>
     ${tasks.length?`<ul class="todo">${tasks.map(([task,gs])=>`<li${gs.every(g=>g.done)?' class="done"':''}><b>${esc(TASKS[task].label)}${gs.every(g=>g.done)?' ✓':''}</b><span>${groupList(gs).replace(/ ✓$/,'')}</span></li>`).join('')}</ul>`:'<p class="muted" style="margin:4px 0 0">No seasonal work this month.</p>'}
     <button class="linkbtn" data-nav="season">${ico('season')}Calendar</button></div>`;
   // featured tree: a different tree each time the app is opened, shown with its most recent photo
@@ -194,9 +194,10 @@ function homeTop(){
   if(!S.feature || !withPh.some(t=>t.id===S.feature)) S.feature = withPh.length ? withPh[Math.floor(Math.random()*withPh.length)].id : null;
   let feature = '';
   if(S.feature){ const t = byId[S.feature]; const when = id => PH[id].date || PDATE[id] || '';
-    const pid = t.photos.filter(id=>PH[id]).sort((a,b)=>when(b).localeCompare(when(a)))[0], p = PH[pid];
-    feature = `<button class="feature" data-tree="${t.id}" aria-label="${esc(t.name)}"><img src="${p.src}" alt="" ${p.driveId?`data-full="${p.driveId}"`:''}><span class="cap"><b>${esc(t.name)}</b><span>${esc(t.common||'')}${when(pid)?' · '+fmtD(when(pid)):''}</span></span></button>`; }
-  return `<div class="home-band">${ukiyoBand()}<span><b>${MONTHS_L[NOW_M-1]}</b>${season} in Brisbane</span></div>
+    const byNew = t.photos.filter(id=>PH[id]).sort((a,b)=>when(b).localeCompare(when(a))); const pid = byNew.find(id=>PH[id].thumb) || byNew[0], p = PH[pid];
+    S.kbStart ||= Date.now(); const kb = Math.min(14, (Date.now()-S.kbStart)/1000);
+    feature = `<button class="feature" data-tree="${t.id}" aria-label="${esc(t.name)}"><img src="${S.featureFull?.id===pid?S.featureFull.url:p.src}" alt="" style="animation-delay:-${kb.toFixed(2)}s" ${p.driveId&&S.featureFull?.id!==pid?`data-full="${p.driveId}" data-pid="${pid}"`:''}><span class="pill-glass">From your collection</span><span class="cap"><b>${esc(t.name)}</b><span>${esc(t.common||'')}${when(pid)?' · '+fmtD(when(pid)):''}</span></span></button>`; }
+  return `<div class="home-band">${ukiyoBand().replace('xMidYMid slice','xMaxYMid slice')}<span><b>${MONTHS_L[NOW_M-1]}</b>${season.charAt(0).toUpperCase()+season.slice(1)} in Brisbane</span></div>
   ${repotCard}${satCard}
   <div class="home-grid${feature?'':' solo'}"><div>${monthCard}</div>${feature?`<div>${feature}</div>`:''}</div>`;
 }
@@ -987,7 +988,7 @@ export function render(){
   const navKey = S.view==='tree' ? (byId[S.tree]?.status==='past'?'past':'trees') : S.view;
   document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.dataset.nav==='more' && ['pots','tools','tool','mixes','past','review','more','recycle','settings','import','how','library','book'].includes(navKey))) ? 'page':'false'); });
   if(document.querySelector('.cmp-stage')) upgradeCmp();
-  const fimg=document.querySelector('.feature img[data-full]'); if(fimg && hasDriveToken() && navigator.onLine) fileUrl(fimg.dataset.full).then(u=>{ if(fimg.isConnected) fimg.src=u; }).catch(()=>{});
+  const fimg=document.querySelector('.feature img[data-full]'); if(fimg && hasDriveToken() && navigator.onLine) fileUrl(fimg.dataset.full).then(u=>{ S.featureFull={id:fimg.dataset.pid, url:u}; if(fimg.isConnected) fimg.src=u; }).catch(()=>{});
   if(S.driveNeed && navigator.onLine){ const n=S.driveNeed, b=document.createElement('div'); b.className='drive-need'; b.setAttribute('role','status');
     b.innerHTML=`${ico('archive')}<span>${[n.photos?`${n.photos} photo${n.photos>1?'s':''}`:'', n.backup?(n.photos?'the weekly backup':'Weekly backup'):''].filter(Boolean).join(' and ')} waiting for Drive</span><button class="btn small" data-drive title="Google's Drive sign-in times out after an hour">Reconnect</button>`;
     $('#main').prepend(b); }
