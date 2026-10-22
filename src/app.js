@@ -196,7 +196,7 @@ function homeTop(){
   if(S.feature){ const t = byId[S.feature]; const when = id => PH[id].date || PDATE[id] || '';
     const byNew = t.photos.filter(id=>PH[id]).sort((a,b)=>when(b).localeCompare(when(a))); const pid = byNew.find(id=>PH[id].thumb) || byNew[0], p = PH[pid];
     S.kbStart ||= Date.now(); const kb = Math.min(14, (Date.now()-S.kbStart)/1000);
-    feature = `<button class="feature" data-tree="${t.id}" aria-label="${esc(t.name)}"><img src="${S.featureFull?.id===pid?S.featureFull.url:p.src}" alt="" style="animation-delay:-${kb.toFixed(2)}s" ${p.driveId&&S.featureFull?.id!==pid?`data-full="${p.driveId}" data-pid="${pid}"`:''}><span class="pill-glass">From your collection</span><span class="cap"><b>${esc(t.name)}</b><span>${esc(t.common||'')}${when(pid)?' · '+fmtD(when(pid)):''}</span></span></button>`; }
+    feature = `<button class="feature" data-tree="${t.id}" aria-label="${esc(t.name)}"><img class="bg" src="${S.featureFull?.id===pid?S.featureFull.url:p.src}" alt="" style="animation-delay:-${kb.toFixed(2)}s"><img class="fg" src="${S.featureFull?.id===pid?S.featureFull.url:p.src}" alt="" ${p.driveId&&S.featureFull?.id!==pid?`data-full="${p.driveId}" data-pid="${pid}"`:''}><span class="cap"><b>${esc(t.name)}</b></span></button>`; }
   return `<div class="home-band">${ukiyoBand().replace('xMidYMid slice','xMaxYMid slice')}<span><b>${MONTHS_L[NOW_M-1]}</b>${season.charAt(0).toUpperCase()+season.slice(1)} in Brisbane</span></div>
   ${repotCard}${satCard}
   <div class="home-grid${feature?'':' solo'}"><div>${monthCard}</div>${feature?`<div>${feature}</div>`:''}</div>`;
@@ -988,7 +988,7 @@ export function render(){
   const navKey = S.view==='tree' ? (byId[S.tree]?.status==='past'?'past':'trees') : S.view;
   document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.dataset.nav==='more' && ['pots','tools','tool','mixes','past','review','more','recycle','settings','import','how','library','book'].includes(navKey))) ? 'page':'false'); });
   if(document.querySelector('.cmp-stage')) upgradeCmp();
-  const fimg=document.querySelector('.feature img[data-full]'); if(fimg && hasDriveToken() && navigator.onLine) fileUrl(fimg.dataset.full).then(u=>{ S.featureFull={id:fimg.dataset.pid, url:u}; if(fimg.isConnected) fimg.src=u; }).catch(()=>{});
+  const fimg=document.querySelector('.feature img[data-full]'); if(fimg && hasDriveToken() && navigator.onLine) fileUrl(fimg.dataset.full).then(u=>{ S.featureFull={id:fimg.dataset.pid, url:u}; document.querySelectorAll('.feature img').forEach(im=>{ if(im.isConnected) im.src=u; }); }).catch(()=>{});
   if(S.driveNeed && navigator.onLine){ const n=S.driveNeed, b=document.createElement('div'); b.className='drive-need'; b.setAttribute('role','status');
     b.innerHTML=`${ico('archive')}<span>${[n.photos?`${n.photos} photo${n.photos>1?'s':''}`:'', n.backup?(n.photos?'the weekly backup':'Weekly backup'):''].filter(Boolean).join(' and ')} waiting for Drive</span><button class="btn small" data-drive title="Google's Drive sign-in times out after an hour">Reconnect</button>`;
     $('#main').prepend(b); }

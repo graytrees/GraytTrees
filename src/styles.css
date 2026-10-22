@@ -489,3 +489,9 @@ body:has(.drive-need) .toast{bottom:calc(196px + env(safe-area-inset-bottom,0px)
 @media (prefers-reduced-motion:reduce){.feature img{animation:none}}
 .pill-glass{position:absolute;top:10px;left:10px;z-index:1;padding:4px 10px;border-radius:999px;font-size:calc(11.5px*var(--fs));font-weight:700;letter-spacing:.02em;color:#fff;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(10px) saturate(1.3);-webkit-backdrop-filter:blur(10px) saturate(1.3)}
 .feature .cap{z-index:1}
+/* featured photo: whole tree visible (contain) over a blurred, slowly drifting copy of itself */
+.feature img.bg{filter:blur(18px) brightness(.75) saturate(1.1);transform:scale(1.15);animation:kenburns-bg 14s ease-out both}
+@keyframes kenburns-bg{from{transform:scale(1.15)}to{transform:scale(1.25)}}
+.feature img.fg{object-fit:contain;animation:none;padding:8px 8px 34px}
+.feature .cap{padding:22px 12px 9px}
+@media (prefers-reduced-motion:reduce){.feature img.bg{animation:none}}
