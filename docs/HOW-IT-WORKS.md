@@ -62,3 +62,10 @@ Testing without the real cloud: `npm run test:ui` runs the app against an in-mem
 - Each tool is one record in the `tools` collection (in the weekly backup too): name, type, brand, model No., length / blade / weight, steel, purchase date, where from, price in yen and optionally dollars, maker's link, comments and photos.
 - The steel choice brings up the matching care note (carbon steels: dry and oil with camellia oil; stainless: rustproof, harder to resharpen). The list can be filtered to the rust-prone tools.
 - The first nine came from Nathan's Kaneshin (2021, 2024) and Wazakura (2025) orders via `graytrees-tools.json` (More › Import). Prices are kept out of this public code: they live only in that file and in Firestore.
+
+## "My collection" Google Doc (for the Claude Project)
+- The Google Doc "GraytTrees – 2 My collection" (Drive › GraytTrees › Claude Knowledge) is the Claude Project's picture of the collection. It is rewritten in place (same file, because the Project links to it) after each weekly backup.
+- A scheduled Claude task checks every morning. If the newest `graytrees-backup-*.json` in GraytTrees/Backups is newer than the date in the Doc's intro line, it runs `scripts/collection-doc.mjs` (rules in `src/collectionDoc.js`) and updates the Doc in two passes: text, then styling read back from the Doc.
+- Rebuilt from the records: intro, At a glance (counts, repot windows, repots due in the next 12 months), the species sections (each tree: since when, last repot, next repot due, notable history, style, soil) and Past trees.
+- Kept exactly as written in the Doc: everything from "Lessons from my own records" up to "Past trees" (lessons, soil-mix history, routine). Edit those in the Doc itself. If the "Lessons from my own records" heading is renamed or removed, the refresh stops rather than risk losing it.
+- Reminder ticks (Care App same-day ticks marked "not counted" in the app) don't count as repots, the same as in the app.
