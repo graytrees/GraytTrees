@@ -1,7 +1,7 @@
 // Weekly backup: every record exported to your Drive as an ordinary JSON file plus a
 // spreadsheet-friendly CSV of the full history. Readable without the app.
 import { exportAll, saveMeta, state } from './store.js';
-import { upload, driveConnected } from './drive.js';
+import { upload, driveConnected, hasDriveToken } from './drive.js';
 
 const WEEK = 7 * 864e5;
 
@@ -27,10 +27,10 @@ async function doBackup(interactive) {
   return day;
 }
 
+export const backupDue = () => Date.now() - (state.meta.backup?.lastMs || 0) >= WEEK;
+
 /** Called on app start: back up if the last one was over a week ago. */
 export async function maybeWeeklyBackup() {
-  if (!navigator.onLine || !driveConnected()) return null;
-  const last = state.meta.backup?.lastMs || 0;
-  if (Date.now() - last < WEEK) return null;
+  if (!navigator.onLine || !driveConnected() || !hasDriveToken() || !backupDue()) return null;
   try { return await backupNow(false); } catch (e) { console.warn('backup deferred', e); state.meta.backupError = String(e.message || e); return null; }
 }

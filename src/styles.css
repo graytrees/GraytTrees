@@ -411,3 +411,10 @@ img.broken{visibility:hidden}
 /* tools */
 .ph .ico.big{width:72px;height:72px}
 .ph .ico.mid{width:38px;height:38px}
+.drive-need{position:fixed;left:12px;right:12px;bottom:calc(124px + env(safe-area-inset-bottom,0px));z-index:40;display:flex;align-items:center;gap:10px;background:var(--amber-soft,#f6ecd2);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:calc(14.5px*var(--fs));box-shadow:var(--shadow)}
+@media (min-width:900px){.drive-need{left:auto;right:24px;bottom:24px;max-width:460px}}
+.drive-need > span{flex:1}
+.drive-need .ico{flex:none}
+
+body:has(.drive-need) .toast{bottom:calc(196px + env(safe-area-inset-bottom,0px))}
+@media (min-width:900px){body:has(.drive-need) .toast{bottom:110px}}

@@ -1,7 +1,7 @@
 // Photos: a small thumbnail is kept with the records (so it shows offline, instantly),
 // the full-size copy (max 2000 px) goes to Google Drive. If there's no signal, the full-size
 // copy waits on the device and uploads automatically next time the app is online.
-import { upload, driveConnected } from './drive.js';
+import { upload, driveConnected, hasDriveToken } from './drive.js';
 import { savePhoto, newId, state } from './store.js';
 
 function loadImg(blob) {
@@ -79,7 +79,7 @@ export async function addPhotos(files, { trees = [], date, origin = 'Graytrees',
     const taken = date ? null : await photoDate(f);
     const rec = { id, thumb: th.dataUrl, w: th.w, h: th.h, ...(taken ? { taken: true } : {}), date: date || taken || (d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'))(new Date()), trees, origin, name: f.name || id + '.jpg' };
     let driveId = null;
-    try { if (navigator.onLine) driveId = await upload(full.blob, `${rec.date} ${id}.jpg`, 'Photos', interactive); } catch (e) { console.warn('upload later', e); }
+    try { if (navigator.onLine) driveId = await upload(full.blob, `${rec.date} ${id}.jpg`, 'Photos', false); } catch (e) { console.warn('upload later', e); }  // never pops up a sign-in window mid-save
     if (!driveId) await qPut(id, { blob: full.blob, name: `${rec.date} ${id}.jpg` });
     await savePhoto({ ...rec, driveId, waiting: !driveId });
     ids.push(id);
@@ -89,7 +89,7 @@ export async function addPhotos(files, { trees = [], date, origin = 'Graytrees',
 
 /** Retry anything that was saved while offline. */
 export async function flushPending() {
-  if (!navigator.onLine || !driveConnected()) return 0;
+  if (!navigator.onLine || !driveConnected() || !hasDriveToken()) return 0;
   let n = 0;
   for (const [id, v] of await qAll()) {
     try {

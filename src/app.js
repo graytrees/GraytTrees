@@ -1,8 +1,8 @@
 
 import { state, onChange, addLogs, editLog, deleteLog, restoreLog, setLogFlags, saveRecord, saveMeta, newId, setTreePhotos, savePhoto } from './store.js';
 import { addPhotos, flushPending, pendingCount, localFull } from './photos.js';
-import { fileUrl, getToken, driveConnected, listBackups } from './drive.js';
-import { backupNow, maybeWeeklyBackup } from './backup.js';
+import { fileUrl, getToken, driveConnected, listBackups, hasDriveToken, preloadGis } from './drive.js';
+import { backupNow, maybeWeeklyBackup, backupDue } from './backup.js';
 import { runImport } from './importer.js';
 import { signOut, auth } from './firebase.js';
 import { TIPS, NOTES, COLLECTION } from './knowledge.js';
@@ -285,6 +285,7 @@ function compareBlock(t, ps, dated){
   </div>`;
 }
 async function upgradeCmp(){
+  if(!hasDriveToken()) return;   // keep the thumbnails rather than pop up a sign-in
   for(const img of document.querySelectorAll('.cmp-stage img[data-full]')){
     if(!navigator.onLine) return;
     try{ const u = await fileUrl(img.dataset.full); if(img.isConnected) img.src = u; }catch(e){ /* thumbnail is fine */ }
@@ -606,7 +607,7 @@ async function saveLog(){
   const acts=[...LG.acts]; if(!acts.length) acts.push('note');
   const ids=[...LG.trees];
   let pids=[];
-  try{ if(LG.fileObjs.length) pids = await addPhotos(LG.fileObjs, {trees:ids, date:LG.date}); }catch(err){ console.warn(err); toast('Photos saved on this device; they will upload later'); }
+  try{ if(LG.fileObjs.length) pids = await addPhotos(LG.fileObjs, {trees:ids, date:LG.date}); }catch(err){ console.warn(err); toast('Photos saved on this device; they will upload later'); } driveCatchUp();
   const label = acts.map(a=>ACT[a]?.label||a).join(', ');
   const text = label + (LG.mix?`\nMix: ${LG.mix}`:'') + (LG.note.trim()?`\n${LG.note.trim()}`:'');
   const batch = newId('B');
@@ -931,6 +932,9 @@ export function render(){
   const navKey = S.view==='tree' ? (byId[S.tree]?.status==='past'?'past':'trees') : S.view;
   document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.dataset.nav==='more' && ['pots','tools','tool','mixes','past','review','more','recycle','settings','import','how','library','book'].includes(navKey))) ? 'page':'false'); });
   if(document.querySelector('.cmp-stage')) upgradeCmp();
+  if(S.driveNeed && navigator.onLine){ const n=S.driveNeed, b=document.createElement('div'); b.className='drive-need'; b.setAttribute('role','status');
+    b.innerHTML=`${ico('archive')}<span>${[n.photos?`${n.photos} photo${n.photos>1?'s':''}`:'', n.backup?(n.photos?'the weekly backup':'Weekly backup'):''].filter(Boolean).join(' and ')} waiting for Drive</span><button class="btn small" data-drive title="Google's Drive sign-in times out after an hour">Reconnect</button>`;
+    $('#main').prepend(b); }
   if(S.view==='settings') pendingCount().then(n=>{ const el=$('#pendingInfo'); if(el) el.textContent = n ? `${n} photo${n>1?'s':''} waiting to upload` : ''; });
 }
 function sync(){
@@ -967,7 +971,7 @@ document.addEventListener('change', async e=>{
   if(e.target.id==='lgfiles'){ LG.fileObjs.push(...e.target.files); keepScroll(renderSheet); }
   if(e.target.dataset.addphoto){
     const tid=e.target.dataset.addphoto, files=[...e.target.files]; toast(`Saving ${files.length} photo${files.length>1?'s':''}…`);
-    try{ const ids = await addPhotos(files, {trees:[tid]}); await setTreePhotos(tid, [...ids, ...(byId[tid]?.photos||[])]); toast(`Added ${ids.length} photo${ids.length>1?'s':''}`); }catch(err){ toast('Could not add photo: '+err.message); }
+    try{ const ids = await addPhotos(files, {trees:[tid]}); await setTreePhotos(tid, [...ids, ...(byId[tid]?.photos||[])]); toast(`Added ${ids.length} photo${ids.length>1?'s':''}`); }catch(err){ toast('Could not add photo: '+err.message); } driveCatchUp();
   }
   if(e.target.id==='bksort'){ S.bksort=e.target.value; render(); }
   if(e.target.id==='bkphoto' && e.target.files[0]) scanPhoto(e.target.files[0]);
@@ -980,15 +984,15 @@ document.addEventListener('change', async e=>{
   }
   if(e.target.dataset.bookphoto){
     const bid=e.target.dataset.bookphoto, files=[...e.target.files]; toast(`Saving ${files.length} page${files.length>1?'s':''}…`);
-    try{ const ids = await addPhotos(files, {origin:'Library'}); const b=BOOKS().find(x=>x.id===bid); await saveRecord('books', {...b, photos:[...(b.photos||[]), ...ids]}); toast(`Added ${ids.length} page${ids.length>1?'s':''}`); }catch(err){ toast('Could not add pages: '+err.message); }
+    try{ const ids = await addPhotos(files, {origin:'Library'}); const b=BOOKS().find(x=>x.id===bid); await saveRecord('books', {...b, photos:[...(b.photos||[]), ...ids]}); toast(`Added ${ids.length} page${ids.length>1?'s':''}`); }catch(err){ toast('Could not add pages: '+err.message); } driveCatchUp();
   }
   if(e.target.dataset.toolphoto){
     const tid=e.target.dataset.toolphoto, files=[...e.target.files]; toast(`Saving ${files.length} photo${files.length>1?'s':''}…`);
-    try{ const ids = await addPhotos(files, {origin:'Tools'}); const x=TOOLS().find(t=>t.id===tid); await saveRecord('tools', {...x, photos:[...(x.photos||[]), ...ids]}); toast(`Added ${ids.length} photo${ids.length>1?'s':''}`); }catch(err){ toast('Could not add photos: '+err.message); }
+    try{ const ids = await addPhotos(files, {origin:'Tools'}); const x=TOOLS().find(t=>t.id===tid); await saveRecord('tools', {...x, photos:[...(x.photos||[]), ...ids]}); toast(`Added ${ids.length} photo${ids.length>1?'s':''}`); }catch(err){ toast('Could not add photos: '+err.message); } driveCatchUp();
     e.target.value='';
   }
   if(e.target.dataset.potphoto){
-    const pid=e.target.dataset.potphoto; const ids = await addPhotos([...e.target.files], {}); const p=D.pots.find(x=>x.id===pid); await saveRecord('pots', {...p, photos:[...ids, ...(p.photos||[])]}); toast('Photo added');
+    const pid=e.target.dataset.potphoto; const ids = await addPhotos([...e.target.files], {}); const p=D.pots.find(x=>x.id===pid); await saveRecord('pots', {...p, photos:[...ids, ...(p.photos||[])]}); toast('Photo added'); driveCatchUp();
   }
 });
 async function openLightbox(id){
@@ -1001,7 +1005,8 @@ async function openLightbox(id){
   const note=document.createElement('p'); note.className='lb-full'; lb.firstChild.appendChild(note);
   if(p.driveId){
     note.innerHTML=`<span>Loading full size…</span> · <a href="https://drive.google.com/file/d/${p.driveId}/view" target="_blank" rel="noopener">Open in Drive to zoom</a>`;
-    if(navigator.onLine) await loadFull(lb, p, false);
+    if(navigator.onLine && hasDriveToken()) await loadFull(lb, p, false);
+    else if(navigator.onLine){ const sp=note.querySelector('span'); sp.innerHTML=`Small copy · <button class="lb-date" data-lbfull="${p.driveId}">Load full size</button>`; }
     else note.querySelector('span').textContent='Showing the small copy (no signal)';
   } else {
     note.innerHTML='<span>The full-size copy is still on this device waiting to upload.</span>';
@@ -1051,8 +1056,8 @@ document.addEventListener('click', async e=>{
   if('tooldelph' in d){ const x=TOOLS().find(t=>t.id===S.toolId); await saveRecord('tools', {...x, photos:(x.photos||[]).filter(i=>i!==d.tooldelph)}); document.querySelector('.lightbox')?.remove(); toast('Photo removed from this tool'); return; }
   if('editmix' in d){ editMix(d.editmix===''?null:+d.editmix); return; }
   if('editentry' in d){ editEntry(d.editentry); return; }
-  if('drive' in d){ try{ await getToken(true); toast('Google Drive connected'); render(); flushPending(); }catch(err){ toast('Drive not connected: '+err.message); } return; }
-  if('backup' in d){ c.disabled=true; c.textContent='Backing up…'; try{ const day=await backupNow(true); toast('Backup saved to Drive ('+day+')'); }catch(err){ toast('Backup failed: '+err.message); } render(); return; }
+  if('drive' in d){ try{ await getToken(true); S.driveNeed=null; render(); toast('Google Drive connected'); await driveCatchUp(); }catch(err){ toast('Drive not connected: '+err.message); } return; }
+  if('backup' in d){ c.disabled=true; c.textContent='Backing up…'; try{ if(!hasDriveToken()) await getToken(true); const day=await backupNow(true); toast('Backup saved to Drive ('+day+')'); }catch(err){ toast('Backup failed: '+err.message); } render(); return; }
   if('signout' in d){ await signOut(); location.reload(); return; }
   if('runimport' in d){
     const j=$('#impJson').files[0], z=[...$('#impZip').files], out=$('#impStatus');
@@ -1102,10 +1107,23 @@ document.addEventListener('click', async e=>{
 document.addEventListener('submit', e=>{ if(e.target.matches('[data-bkform]')){ e.preventDefault(); stopScan(); checkBook($('#bkq').value); } });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ stopScan(); $('#layer').innerHTML=''; FORM=null; document.querySelector('.lightbox')?.remove(); } });
 
+/* Drive work that waits for a valid sign-in: uploads waiting photos and runs the weekly backup.
+   Without a sign-in it shows a small "Reconnect" bar instead of popping up Google's window. */
+async function driveCatchUp(){
+  if(!navigator.onLine || !driveConnected()) return;
+  const photos = await pendingCount(), backup = backupDue() && state.ready.meta;
+  if(!hasDriveToken()){ const need = (photos||backup) ? {photos, backup} : null; if(JSON.stringify(need)!==JSON.stringify(S.driveNeed)){ S.driveNeed=need; render(); } return; }
+  S.driveNeed=null;
+  const n = await flushPending(); if(n) toast(`${n} photo${n>1?'s':''} uploaded`);
+  const b = await maybeWeeklyBackup(); if(b) toast('Weekly backup saved to Drive');
+  if(await pendingCount()) S.driveNeed = {photos: await pendingCount(), backup:false};
+  render();
+}
 export function startApp(){
   sync(); render();
   onChange(refresh);
-  window.addEventListener('online', ()=>{ refresh(); flushPending(); maybeWeeklyBackup(); });
+  preloadGis();   // so a Reconnect tap opens Google's window straight away (browsers only allow it right after a tap)
+  window.addEventListener('online', ()=>{ refresh(); driveCatchUp(); });
   window.addEventListener('offline', refresh);
-  setTimeout(async ()=>{ const n = await flushPending(); if(n) toast(`${n} photo${n>1?'s':''} uploaded`); const b = await maybeWeeklyBackup(); if(b) toast('Weekly backup saved to Drive'); }, 4000);
+  setTimeout(driveCatchUp, 4000);
 }

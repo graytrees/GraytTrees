@@ -6,6 +6,8 @@ import { googleClientId, driveFolderName, ownerEmail } from './config.js';
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const API = 'https://www.googleapis.com/drive/v3';
 let token = null, tokenExp = 0, client = null, gisLoading = null;
+// Keep the hour-long Drive pass across app restarts, so reopening the app doesn't need a new sign-in.
+try { const s = JSON.parse(localStorage.getItem('gt-drive-tok') || 'null'); if (s && s.exp > Date.now() + 60000) { token = s.t; tokenExp = s.exp; } } catch (e) {}
 
 function loadGis() {
   if (window.google?.accounts?.oauth2) return Promise.resolve();
@@ -18,9 +20,16 @@ function loadGis() {
   return gisLoading;
 }
 
-/** Get a Drive access token. `interactive` must be true when called from a tap (first time shows Google's consent). */
+export const hasDriveToken = () => !!token && Date.now() < tokenExp - 60000;
+export const preloadGis = () => loadGis().catch(() => {});
+
+/** Get a Drive access token.
+ *  Google only hands out a new token (they last an hour) through a small sign-in window, and browsers
+ *  block windows the user didn't tap for ("pop-ups blocked"). So the app only asks when `interactive`
+ *  is true, i.e. straight from a tap. Background work without a valid token waits instead. */
 export async function getToken(interactive = false) {
-  if (token && Date.now() < tokenExp - 60000) return token;
+  if (hasDriveToken()) return token;
+  if (!interactive) throw new Error('Drive sign-in needed');
   if (!navigator.onLine) throw new Error('offline');
   await loadGis();
   return new Promise((resolve, reject) => {
@@ -30,7 +39,7 @@ export async function getToken(interactive = false) {
       callback: r => {
         if (r.error) return reject(new Error(r.error));
         token = r.access_token; tokenExp = Date.now() + r.expires_in * 1000;
-        try { localStorage.setItem('gt-drive-ok', '1'); } catch (e) {}
+        try { localStorage.setItem('gt-drive-ok', '1'); localStorage.setItem('gt-drive-tok', JSON.stringify({ t: token, exp: tokenExp })); } catch (e) {}
         resolve(token);
       },
       error_callback: e => reject(new Error(e.type || 'Drive permission was not granted')),
