@@ -526,7 +526,7 @@ function viewMore(){
     <button data-nav="tools">${ico('scissors')}<div>Tools<span>${TOOLS().length?TOOLS().length+' tools · steel, care and what they cost':'Your bonsai tools'}</span></div></button>
     <button data-nav="mixes">${ico('mix')}<div>Soil mixes<span>Recipes and a pot volume calculator</span></div></button>
     <button data-nav="past">${ico('archive')}<div>Past trees<span>${TREES.filter(t=>t.status==='past').length} trees from 2003 onwards</span></div></button>
-    <button data-nav="recycle">${ico('x')}<div>Recycle bin<span>${DELETED.length} deleted entr${DELETED.length===1?'y':'ies'} you can restore</span></div></button>
+    <button data-nav="recycle">${ico('x')}<div>Recycle bin<span>${(n=>`${n} item${n===1?'':'s'} you can restore`)(DELETED.length+binCount())}</span></div></button>
     <button data-nav="settings">${ico('shield')}<div>Settings &amp; backups<span>Text size · ${state.meta.backup?.lastDay?'Last backup '+fmtD(state.meta.backup.lastDay):'No backup yet'}</span></div></button>
     <button data-nav="how">${ico('eye')}<div>How it works<span>Where everything lives, making changes, getting things back</span></div></button>
     <button data-nav="review">${ico('question')}<div>Import notes<span>What was merged and how</span></div></button>
@@ -582,10 +582,18 @@ function viewHow(){
     <p class="muted mnote" style="margin-top:0">Glance at Firebase usage (free tier) and Drive storage space. GitHub has two-factor on, with recovery codes in Bitwarden.</p>
   </div>`;
 }
+const binList = name => (state[name]||[]).filter(x=>x.deleted).sort((a,b)=>(b.deletedMs||0)-(a.deletedMs||0));
+const binCount = () => binList('books').length + binList('tools').length;
+function binRows(name, label, title){
+  const l = binList(name); if(!l.length) return '';
+  return `<span class="eyebrow" style="display:block;margin:6px 0 10px">${label}</span>` + l.map(x=>`<div class="card" style="padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:center"><div style="flex:1;min-width:0"><b>${title(x)}</b>${x.deletedMs?` <span class="muted num">· removed ${fmtD(localDay(new Date(x.deletedMs)))}</span>`:''}</div><button class="btn small" data-restorerec="${name}:${esc(x.id)}">Restore</button></div>`).join('');
+}
 function viewRecycle(){
   return header() + `<div class="section-h"><div><span class="eyebrow">Nothing is ever lost</span><h2>Recycle bin</h2></div></div>
-  <p class="muted" style="margin-top:-4px">Deleted history entries stay here. Restore puts them straight back.</p>
-  ${DELETED.map(l=>`<div class="card" style="padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:center"><div style="flex:1;min-width:0"><b>${l.trees.map(id=>esc(byId[id]?.name||id)).join(', ')}</b> <span class="muted num">· ${fmtD(l.date,l.precision)}</span><div class="muted" style="font-size:calc(14.5px*var(--fs));white-space:pre-line">${esc(l.text)}</div></div><button class="btn small" data-restore="${l.id}">Restore</button></div>`).join('')||'<div class="empty">The recycle bin is empty.</div>'}`;
+  <p class="muted" style="margin-top:-4px">Deleted history entries, removed books and removed tools stay here. Restore puts them straight back.</p>
+  ${binRows('books', 'Books', b=>esc(b.title||'Untitled book'))}${binRows('tools', 'Tools', t=>esc(t.name||t.title||'Tool'))}
+  ${DELETED.length?`<span class="eyebrow" style="display:block;margin:6px 0 10px">History entries</span>`:''}
+  ${DELETED.map(l=>`<div class="card" style="padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:center"><div style="flex:1;min-width:0"><b>${l.trees.map(id=>esc(byId[id]?.name||id)).join(', ')}</b> <span class="muted num">· ${fmtD(l.date,l.precision)}</span><div class="muted" style="font-size:calc(14.5px*var(--fs));white-space:pre-line">${esc(l.text)}</div></div><button class="btn small" data-restore="${l.id}">Restore</button></div>`).join('')||(binCount()?'':'<div class="empty">The recycle bin is empty.</div>')}`;
 }
 function viewSettings(){
   const b = state.meta.backup;
@@ -1081,7 +1089,7 @@ async function loadFull(lb, p, interactive){
   }
 }
 document.addEventListener('click', async e=>{
-  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-otd],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
+  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-restorerec],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-otd],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
   if(!c) return;
   const d = c.dataset;
   if(c.classList.contains('lightbox')){ if(e.target.closest('.lb-edit,.lb-full a')) return; c.remove(); return; }
@@ -1103,6 +1111,7 @@ document.addEventListener('click', async e=>{
   if('ftree' in d){ const a=FORM.value.used=FORM.value.used||[]; const i=a.indexOf(d.ftree); i>=0?a.splice(i,1):a.push(d.ftree); c.setAttribute('aria-pressed', i<0); return; }
   if('fsave' in d){ const v=readForm(); if(FORM.value.actions) v.actions=FORM.value.actions; if(FORM.value.used) v.used=FORM.value.used; c.disabled=true; try{ const err=await FORM.onSave(v); if(err){ FORM.value=v; FORM.err=err; renderForm(); return; } $('#layer').innerHTML=''; FORM=null; }catch(err){ FORM.value=v; FORM.err='Could not save: '+err.message; renderForm(); } return; }
   if('delentry' in d){ await deleteLog(d.delentry); $('#layer').innerHTML=''; FORM=null; toast('Moved to the recycle bin'); return; }
+  if('restorerec' in d){ const [nm,id]=d.restorerec.split(':'); const x=(state[nm]||[]).find(r=>r.id===id); if(x){ await saveRecord(nm, {...x, deleted:false, deletedMs:null}); toast('Restored'); } return; }
   if('restore' in d){ await restoreLog(d.restore); toast('Restored'); return; }
   if('edittree' in d){ editTree(d.edittree||null); return; }
   if('editpot' in d){ editPot(d.editpot||null); return; }

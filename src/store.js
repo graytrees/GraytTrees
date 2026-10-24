@@ -62,12 +62,23 @@ export const restoreLog = id => updateDoc(ref('logs', id), { deleted: false, ...
 export const setLogFlags = (id, flags) => updateDoc(ref('logs', id), { flags, ...stamp() });
 
 /* ---------- trees, pots, mixes ---------- */
+// Long typed text (a book's contents/index) is not copied into the edit history: it would
+// otherwise be repeated on every save and could push one record past Firestore's 1 MB limit.
+const NO_HISTORY = ['contents', 'index'];
+const MAX_REVS = 30, MAX_REV_BYTES = 300000;
+const slim = r => { const x = { ...r }; for (const k of NO_HISTORY) if (k in x) { x[k] = x[k] ? '(long text not kept in history)' : x[k]; } return x; };
 export async function saveRecord(name, rec) {
   const id = rec.id || newId(name[0]);
   const cur = (state[name] || []).find(x => x.id === id);
   const { revisions, ...plain } = cur || {};
   const data = { ...rec, id, ...stamp() };
-  if (cur) data.revisions = arrayUnion({ ...plain, updatedAt: null, at: Date.now() });
+  if (cur) {
+    const snap = slim({ ...plain, updatedAt: null, at: Date.now() });
+    const old = revisions || [];
+    // Keep history small: once it's long, keep the most recent versions (slimmed) and drop the oldest.
+    if (old.length >= MAX_REVS || JSON.stringify(old).length > MAX_REV_BYTES) data.revisions = [...old.slice(-(MAX_REVS - 1)).map(slim), snap];
+    else data.revisions = arrayUnion(snap);
+  }
   await setDoc(ref(name, id), data, { merge: true });
   return id;
 }
