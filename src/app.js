@@ -857,7 +857,8 @@ function viewLibrary(){
     const lines = [...String(b.contents||'').split('\n').map(l=>['Contents',l]), ...String(b.index||'').split('\n').map(l=>['Index',l])].filter(([,l])=>has(l));
     if(lines.length){ hit[b.id]=lines.slice(0,3); return true; } return false; }); }
   const by = S.bksort||'title';
-  const key = b => by==='author' ? (b.authors||[''])[0].toLowerCase() : by==='year' ? String(9999-(+b.year||0)) : b.title.replace(/^(the|a)\s+/i,'').toLowerCase();
+  const surname = a => { a = String(a||''); return a.includes(',') ? a.split(',')[0].trim() : a.trim().split(/\s+/).pop(); };
+  const key = b => by==='author' ? (surname((b.authors||[''])[0])+' '+((b.authors||[''])[0]||'')).toLowerCase() : by==='year' ? String(9999-(+b.year||0)) : b.title.replace(/^(the|a)\s+/i,'').toLowerCase();
   list.sort((a,b)=>key(a).localeCompare(key(b)) || a.title.localeCompare(b.title));
   const nKey = all.filter(b=>b.key).length, nPg = all.filter(b=>(b.photos||[]).length).length;
   return header('Search title, author or ISBN…') + `<div class="section-h"><div><span class="eyebrow">${all.length} books</span><h2>Library</h2></div>
@@ -898,8 +899,8 @@ function viewBook(){
 }
 function editBook(id, pre){
   const b = id ? BOOKS().find(x=>x.id===id) : {authors:[], photos:[], key:false, ...(pre||{})};
-  openForm({ title: id?'Edit book':'Add a book', value:{...b, authors:(b.authors||[]).join('; '), key:b.key?'yes':''},
-    fields:[{k:'title',label:'Title'},{k:'subtitle',label:'Subtitle'},{k:'authors',label:'Author(s) – Surname, First; separate with ;'},
+  openForm({ title: id?'Edit book':'Add a book', value:{...b, authors:(b.authors||[]).map(authorName).join('; '), key:b.key?'yes':''},
+    fields:[{k:'title',label:'Title'},{k:'subtitle',label:'Subtitle'},{k:'authors',label:'Author(s) – e.g. Mark Akins; separate several with ;'},
       {k:'publisher',label:'Publisher'},{k:'year',label:'Year'},{k:'pages',label:'Pages',type:'number'},{k:'isbn',label:'ISBN'},
       {k:'key',label:'Key book?',type:'select',options:[['','No'],['yes','Yes – one of my key references']]},
       {k:'notes',label:'My notes',type:'textarea'}],
