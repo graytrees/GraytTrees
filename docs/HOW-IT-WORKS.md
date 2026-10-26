@@ -41,6 +41,8 @@ Changes that alter how records are stored: take a backup first (More → Setting
 - `photos.js` – thumbnails, Drive upload, offline photo queue
 - `drive.js` – Google Drive access
 - `backup.js` – weekly backup
+- `docSync.js` – after each backup: monthly jobs file and the collection Doc refresh; linking the Doc
+- `collectionDoc.js` / `jobs.js` – the rules for the collection Doc and for seasonal jobs
 - `importer.js` – one-time import of the merged old records (also used for top-up photo imports)
 - In the app: More › How it works shows this page as visual maps (where everything lives, making a change, getting things back)
 - `config.js` – Firebase project settings and owner email
@@ -65,7 +67,15 @@ Testing without the real cloud: `npm run test:ui` runs the app against an in-mem
 
 ## "My collection" Google Doc (for the Claude Project)
 - The Google Doc "GraytTrees – 2 My collection" (Drive › GraytTrees › Claude Knowledge) is the Claude Project's picture of the collection. It is rewritten in place (same file, because the Project links to it) after each weekly backup.
-- A scheduled Claude task checks every morning. If the newest `graytrees-backup-*.json` in GraytTrees/Backups is newer than the date in the Doc's intro line, it runs `scripts/collection-doc.mjs` (rules in `src/collectionDoc.js`) and updates the Doc in two passes: text, then styling read back from the Doc.
+- The app refreshes it itself straight after each weekly backup (and after "Back up now"), using the rules in `src/collectionDoc.js` (`src/docSync.js` does the Google Docs calls): text first, then styling read back from the Doc, then a check. The result shows in More › Settings & backups.
+- Access: the app keeps the narrow `drive.file` permission, so the Doc is linked once with Google's file picker (More › Settings & backups › Link collection Doc). That lets the app open that one Doc and nothing else. Needs the "Google Docs API" and "Google Picker API" switched on in the Google Cloud project `graytrees`.
+- A weekly scheduled Claude task only checks that the Doc's intro date has kept up with the newest backup and emails if not. It runs no code (scheduled tasks can't run code downloaded from GitHub).
+- `scripts/collection-doc.mjs` uses the same rules and is kept for checking or repairing the Doc by hand.
 - Rebuilt from the records: intro, At a glance (counts, repot windows, repots due in the next 12 months), the species sections (each tree: since when, last repot, next repot due, notable history, style, soil) and Past trees.
 - Kept exactly as written in the Doc: everything from "Lessons from my own records" up to "Past trees" (lessons, soil-mix history, routine). Edit those in the Doc itself. If the "Lessons from my own records" heading is renamed or removed, the refresh stops rather than risk losing it.
 - Reminder ticks (Care App same-day ticks marked "not counted" in the app) don't count as repots, the same as in the app.
+
+## Monthly bonsai jobs (TickTick)
+- Each backup also saves `graytrees-jobs-YYYY-MM-DD.json` in GraytTrees/Backups: the "Bonsai jobs" checklists for this month and the next two (same rules as Season › Monthly look-ahead, `monthlyJobs` in `src/jobs.js`).
+- On the 1st, a scheduled Claude task reads the newest jobs file and creates the checklist task in TickTick's Bonsai list. It runs no code. If the newest file is over a fortnight old it adds a reminder to open the app.
+- `scripts/monthly-jobs.mjs` gives the same list from a backup file, for checking by hand.

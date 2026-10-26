@@ -189,3 +189,27 @@ export function styleRequests(doc, blocks) {
   region(1, keepStart, blocks.top);
   return req;
 }
+
+/* ---------- reading the Doc back ---------- */
+const tabOf = doc => (doc.tabs ? doc.tabs[0].documentTab : doc);
+export const docText = doc => tabOf(doc).body.content.filter(e => e.paragraph).map(e => paraText(e.paragraph)).join('');
+const MNUM = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
+
+/** The backup date (YYYY-MM-DD) the Doc was last rebuilt from, or 'none'. */
+export function builtFrom(doc) {
+  const m = docText(doc).match(/backup of (\d{1,2}) (\w{3}) (\d{4})/);
+  return m ? `${m[3]}-${MNUM[m[2]]}-${m[1].padStart(2, '0')}` : 'none';
+}
+
+/** Checks the Doc after a refresh. Returns [] when all is well, else a list of problems. */
+export function checkDoc(doc, data, backupDay) {
+  const t = docText(doc), problems = [];
+  if (builtFrom(doc) !== backupDay) problems.push(`intro says backup ${builtFrom(doc)}, expected ${backupDay}`);
+  for (const h of ['At a glance', KEEP_FROM, 'Past trees']) if (!t.includes(h)) problems.push(`missing "${h}"`);
+  const active = (data.trees || []).filter(x => !x.deleted && x.status !== 'past');
+  const missing = active.filter(x => !t.includes(x.name + ' – ') && !t.includes(x.name + ' (')).map(x => x.name);
+  if (missing.length) problems.push('trees missing: ' + missing.join(', '));
+  const bullets = tabOf(doc).body.content.filter(e => e.paragraph?.bullet).length;
+  if (bullets < active.length) problems.push(`only ${bullets} bulleted lines (styling pass may not have run)`);
+  return problems;
+}

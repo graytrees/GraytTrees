@@ -52,9 +52,11 @@ export const driveConnected = () => { try { return localStorage.getItem('gt-driv
 async function api(path, opts = {}) {
   const t = await getToken(opts.interactive);
   const r = await fetch(path.startsWith('http') ? path : API + path, { ...opts, headers: { Authorization: 'Bearer ' + t, ...(opts.headers || {}) } });
-  if (!r.ok) throw new Error('Drive ' + r.status + ': ' + (await r.text()).slice(0, 200));
+  if (!r.ok) { const e = new Error((opts.label || 'Drive') + ' ' + r.status + ': ' + (await r.text()).slice(0, 200)); e.status = r.status; throw e; }
   return r;
 }
+/** Signed-in request to another Google API (e.g. Google Docs) with the same Drive pass. */
+export const googleApi = api;
 
 const folderCache = {};
 async function folder(name, parent) {

@@ -2,7 +2,8 @@
 import { state, onChange, addLogs, editLog, deleteLog, restoreLog, setLogFlags, saveRecord, saveMeta, newId, setTreePhotos, savePhoto } from './store.js';
 import { addPhotos, flushPending, pendingCount, localFull } from './photos.js';
 import { fileUrl, getToken, driveConnected, listBackups, hasDriveToken, preloadGis } from './drive.js';
-import { backupNow, maybeWeeklyBackup, backupDue } from './backup.js';
+import { backupNow, maybeWeeklyBackup, backupDue, lastDocResult } from './backup.js';
+import { linkCollectionDoc } from './docSync.js';
 import { runImport } from './importer.js';
 import { signOut, auth } from './firebase.js';
 import { TIPS, NOTES, COLLECTION } from './knowledge.js';
@@ -606,7 +607,13 @@ function viewSettings(){
       <p class="muted num" style="font-size:calc(14px*var(--fs));margin:10px 0 0" id="pendingInfo"></p></div>
     <div class="card" style="padding:16px"><b>Weekly backup</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">Every 7 days, the next time the app is opened online, all records are saved to Drive → GraytTrees → Backups as a JSON file and a history spreadsheet (CSV).</p>
       <p style="margin:0 0 10px">${b?.lastDay?`Last backup <b>${fmtD(b.lastDay)}</b> · ${b.trees} trees, ${b.logs} entries`:'No backup yet.'}</p>
-      <button class="btn small" data-backup>${ico('archive')}Back up now</button></div>
+      <button class="btn small" data-backup>${ico('archive')}Back up now</button>
+      ${state.meta.jobsFile?.error?`<p class="err" style="margin:10px 0 0">Monthly jobs file not saved last time: ${esc(state.meta.jobsFile.error)}</p>`:''}</div>
+    ${(()=>{ const cd=state.meta.collectionDoc||{}; return `<div class="card" style="padding:16px"><b>Collection Doc (Claude Project)</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">After each backup the app rewrites the tree sections of "GraytTrees – 2 My collection". Your Lessons, soil-mix history and routine are never touched.</p>
+      ${cd.id?`<p style="margin:0 0 10px">${esc(cd.name||'Linked')} · ${cd.lastDay?'refreshed from the backup of <b>'+fmtD(cd.lastDay)+'</b>':'not refreshed yet'}</p>
+      ${cd.error&&(cd.errorMs||0)>(cd.lastMs||0)?`<p class="err" style="margin:0 0 10px">Last refresh failed: ${esc(cd.error)}</p>`:''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" data-backup>${ico('archive')}Back up &amp; refresh now</button><button class="btn ghost small" data-doclink>Link a different Doc</button></div>`
+      :`<p style="margin:0 0 10px">Not linked yet. The app can only open files it made, so choose the Doc once to let it in (that Doc only).</p><button class="btn small" data-doclink>${ico('check')}Link collection Doc</button>`}</div>`; })()}
     <div class="card" style="padding:16px"><b>Import records</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">Load the merged records file and photo bundle. Safe to run again; nothing is duplicated.</p><button class="btn ghost small" data-nav="import">${ico('archive')}Open import</button></div>
     <div class="card" style="padding:16px"><b>Signed in</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">${esc(auth.currentUser?.email||'')}</p><button class="btn ghost small" data-signout>Sign out</button></div>
   </div>`;
@@ -1090,7 +1097,7 @@ async function loadFull(lb, p, interactive){
   }
 }
 document.addEventListener('click', async e=>{
-  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-restorerec],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-otd],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
+  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-restorerec],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-doclink],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-otd],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
   if(!c) return;
   const d = c.dataset;
   if(c.classList.contains('lightbox')){ if(e.target.closest('.lb-edit,.lb-full a')) return; c.remove(); return; }
@@ -1124,7 +1131,8 @@ document.addEventListener('click', async e=>{
   if('editmix' in d){ editMix(d.editmix===''?null:+d.editmix); return; }
   if('editentry' in d){ editEntry(d.editentry); return; }
   if('drive' in d){ try{ await getToken(true); S.driveNeed=null; render(); toast('Google Drive connected'); await driveCatchUp(); }catch(err){ toast('Drive not connected: '+err.message); } return; }
-  if('backup' in d){ c.disabled=true; c.textContent='Backing up…'; try{ if(!hasDriveToken()) await getToken(true); const day=await backupNow(true); toast('Backup saved to Drive ('+day+')'); }catch(err){ toast('Backup failed: '+err.message); } render(); return; }
+  if('backup' in d){ c.disabled=true; c.textContent='Backing up…'; try{ if(!hasDriveToken()) await getToken(true); const day=await backupNow(true); const doc=lastDocResult(); toast('Backup saved to Drive ('+day+')'+(doc==='updated'?' and collection Doc updated':doc.startsWith('not updated')?' – collection Doc '+doc:'')); }catch(err){ toast('Backup failed: '+err.message); } render(); return; }
+  if('doclink' in d){ c.disabled=true; try{ const r=await linkCollectionDoc(); if(r) toast('Linked "'+r.name+'" – it will be refreshed after each backup'); }catch(err){ toast('Not linked: '+err.message); } render(); return; }
   if('signout' in d){ await signOut(); location.reload(); return; }
   if('runimport' in d){
     const j=$('#impJson').files[0], z=[...$('#impZip').files], out=$('#impStatus');
