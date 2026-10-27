@@ -210,7 +210,7 @@ dl.info dt:first-of-type,dl.info dt:first-of-type + dd{border-top:0}
 .sheet h2{font-size:calc(26px*var(--fs))}
 .step{margin-top:18px}
 .step > .eyebrow{display:block;margin-bottom:8px}
-.picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px;max-height:calc(300px*var(--fs));overflow:auto;padding:2px}
+.tree-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px;max-height:calc(300px*var(--fs));overflow:auto;padding:2px}
 .pick{border:2px solid transparent;background:var(--paper);border-radius:12px;padding:6px;display:flex;flex-direction:column;gap:4px;font-size:calc(13px*var(--fs));text-align:left;line-height:1.2;position:relative}
 .pick img,.pick .ph{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px}
 .pick[aria-pressed="true"]{border-color:var(--glaze);background:var(--glaze-soft)}

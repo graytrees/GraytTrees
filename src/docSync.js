@@ -117,9 +117,13 @@ export async function linkCollectionDoc() {
   const d = await pickCollectionDoc();
   if (!d) return null;
   // make sure the app can really open it before saving the link
-  const doc = await getDoc(d.id).catch(e => {
+  const doc = await getDoc(d.id).catch(async e => {
     if (e.status === 403 && /SERVICE_DISABLED|has not been used|is disabled/i.test(e.message)) throw new Error('Linked, but the Google Docs service is switched off for the app. Turn on "Google Docs API" in Google Cloud, then try again.');
-    throw e;
+    // tell apart "Google didn't give the app the file" from "Google Docs won't open it"
+    const drive = await googleApi(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(d.id)}?fields=id,name,capabilities/canEdit`)
+      .then(r => r.json()).then(f => `Drive can see it (can edit: ${f.capabilities?.canEdit ? 'yes' : 'no'})`)
+      .catch(x => `Drive can't see it either (${x.status || ''})`);
+    throw new Error(`Google Docs ${e.status || ''}: ${googleSays(e.message) || e.message}. ${drive}. Picked file ${d.id}.`);
   });
   await saveMeta('collectionDoc', { id: d.id, name: doc.title || d.name, linkedMs: Date.now(), lastDay: '', lastMs: 0, error: '' });
   return { id: d.id, name: doc.title || d.name };

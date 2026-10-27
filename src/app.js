@@ -644,7 +644,7 @@ function renderSheet(){
     <div class="row" style="justify-content:space-between"><h2>Log work</h2><button class="btn ghost small" data-close aria-label="Close">${ico('x')}</button></div>
     <div class="step"><span class="eyebrow">1 · Which trees? <span class="num" style="color:var(--glaze)">${LG.trees.size} selected</span></span>
       <div class="chips" style="margin-bottom:8px">${GROUPS.map(([k,l])=>`<button class="chip" data-lgf="${k}" aria-pressed="${LG.filter===k}">${l}</button>`).join('')}<button class="chip" data-lgall>Select all shown</button><button class="chip" data-lgnone>Clear</button></div>
-      <div class="picker">${act.map(t=>`<button class="pick" data-lgt="${t.id}" aria-pressed="${LG.trees.has(t.id)}">${thumb(t,'')}<span>${esc(t.name)}</span></button>`).join('')}</div></div>
+      <div class="tree-picker">${act.map(t=>`<button class="pick" data-lgt="${t.id}" aria-pressed="${LG.trees.has(t.id)}">${thumb(t,'')}<span>${esc(t.name)}</span></button>`).join('')}</div></div>
     <div class="step"><div class="row" style="justify-content:space-between;margin-bottom:8px"><span class="eyebrow">2 · What did you do?</span><button class="btn ghost small" data-jobsed aria-expanded="${!!LG.editing}">${LG.editing?'Done editing':'Edit jobs'}</button></div>
       ${LG.editing ? jobsEditor() : `${COMBOS.length?`<div class="combos">${COMBOS.map(c=>`<button class="combo" data-combo="${c.id}">+ ${esc(c.label)}</button>`).join('')}</div>`:''}
       <div class="actgrid">${JOBS.filter(j=>!j.hidden).map(j=>`<button class="actbtn" data-lga="${j.id}" aria-pressed="${LG.acts.has(j.id)}">${ico(KIND_ICON[j.kind]||'eye')}${esc(j.label)}</button>`).join('')}</div>`}</div>
@@ -1132,7 +1132,7 @@ document.addEventListener('click', async e=>{
   if('editentry' in d){ editEntry(d.editentry); return; }
   if('drive' in d){ try{ await getToken(true); S.driveNeed=null; render(); toast('Google Drive connected'); await driveCatchUp(); }catch(err){ toast('Drive not connected: '+err.message); } return; }
   if('backup' in d){ c.disabled=true; c.textContent='Backing up…'; try{ if(!hasDriveToken()) await getToken(true); const day=await backupNow(true); const doc=lastDocResult(); toast('Backup saved to Drive ('+day+')'+(doc==='updated'?' and collection Doc updated':doc.startsWith('not updated')?' – collection Doc '+doc:'')); }catch(err){ toast('Backup failed: '+err.message); } render(); return; }
-  if('doclink' in d){ c.disabled=true; try{ const r=await linkCollectionDoc(); if(r) toast('Linked "'+r.name+'" – it will be refreshed after each backup'); }catch(err){ toast('Not linked: '+err.message); } render(); return; }
+  if('doclink' in d){ c.disabled=true; try{ const r=await linkCollectionDoc(); if(r) toast('Linked "'+r.name+'" – it will be refreshed after each backup'); }catch(err){ toast('Not linked: '+err.message); await saveMeta('collectionDoc',{error:'Linking failed: '+err.message, errorMs:Date.now()}).catch(()=>{}); } render(); return; }
   if('signout' in d){ await signOut(); location.reload(); return; }
   if('runimport' in d){
     const j=$('#impJson').files[0], z=[...$('#impZip').files], out=$('#impStatus');
