@@ -849,7 +849,7 @@ function isbn13(s){
 const authorName = a => { const [l,f] = String(a).split(',').map(x=>x.trim()); return f ? `${f} ${l}` : l; };
 const authorsTxt = b => (b.authors||[]).map(authorName).join(', ');
 function bookCover(b, cls='bk-cover'){
-  const src = b.cover || b.coverUrl;
+  const src = (b.coverPhoto && PH[b.coverPhoto]?.src) || b.cover || b.coverUrl;
   const ph = `<div class="${cls} bk-ph"><span>${esc(b.title)}</span></div>`;
   return src ? `<img class="${cls}" src="${esc(src)}" alt="" loading="lazy" onerror="this.outerHTML=this.dataset.ph" data-ph="${esc(ph)}">` : ph;
 }
@@ -890,7 +890,7 @@ function viewBook(){
       <p style="margin:0 0 6px;font-weight:600">${esc(authorsTxt(b))||'<span class="muted">Author not recorded</span>'}</p>
       ${facts?`<p class="muted" style="margin:0 0 6px">${facts}</p>`:''}
       ${b.isbn13||b.isbn?`<p class="muted num" style="margin:0 0 10px">ISBN ${esc(b.isbn13||b.isbn)}</p>`:''}
-      <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small ${b.key?'':'ghost'}" data-bkkey="${esc(b.id)}" aria-pressed="${!!b.key}">${ico('star')}${b.key?'Key book':'Mark as key book'}</button>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn ghost small">${ico('cam')}${b.coverPhoto||b.cover||b.coverUrl?'Change cover':'Cover photo'}<input type="file" accept="image/*" hidden data-bookcover="${esc(b.id)}"></label><button class="btn small ${b.key?'':'ghost'}" data-bkkey="${esc(b.id)}" aria-pressed="${!!b.key}">${ico('star')}${b.key?'Key book':'Mark as key book'}</button>
       <button class="btn ghost small" data-editbook="${esc(b.id)}">${ico('brush')}Edit</button></div>
     </div></div>
   ${b.notes?`<div class="section-h"><h2 style="font-size:calc(20px*var(--fs))">My notes</h2></div><div class="card" style="padding:14px 16px;white-space:pre-wrap">${esc(b.notes)}</div>`:''}
@@ -1056,6 +1056,11 @@ document.addEventListener('change', async e=>{
     }catch(err){ toast('Could not read that file: '+err.message); }
     e.target.value='';
   }
+  if(e.target.dataset.bookcover && e.target.files[0]){
+    const bid=e.target.dataset.bookcover; toast('Saving cover…');
+    try{ const [pid] = await addPhotos([e.target.files[0]], {origin:'Library cover'}); const b=BOOKS().find(x=>x.id===bid); await saveRecord('books', {...b, coverPhoto:pid}); toast('Cover saved'); }catch(err){ toast('Could not save the cover: '+err.message); } driveCatchUp();
+    e.target.value='';
+  }
   if(e.target.dataset.bookphoto){
     const bid=e.target.dataset.bookphoto, files=[...e.target.files]; toast(`Saving ${files.length} page${files.length>1?'s':''}…`);
     try{ const ids = await addPhotos(files, {origin:'Library'}); const b=BOOKS().find(x=>x.id===bid); await saveRecord('books', {...b, photos:[...(b.photos||[]), ...ids]}); toast(`Added ${ids.length} page${ids.length>1?'s':''}`); }catch(err){ toast('Could not add pages: '+err.message); } driveCatchUp();
@@ -1074,7 +1079,7 @@ async function openLightbox(id){
   const lb=document.createElement('div'); lb.className='lightbox';
   lb.innerHTML=`<div><img src="${p.src}" alt=""><p>${p.date?fmtD(p.date):esc(p.origin||'Date unknown')} · <button class="lb-date" data-phdate="${id}">Change date</button>${S.view==='tree'&&byId[S.tree]?.photos?.includes(id)?(byId[S.tree].cover===id?` · <button class="lb-date" data-phcover="">Go back to newest photo</button>`:coverId(byId[S.tree])===id?'':` · <button class="lb-date" data-phcover="${id}">Use as tree photo</button>`):''} · tap photo to close</p></div>`;
   if(S.view==='tool'){ const dp=lb.querySelector('[data-phdate]'); dp.insertAdjacentHTML('afterend', ` · <button class="lb-date" data-tooldelph="${id}">Remove from this tool</button>`); }
-  if(p.origin==='Library'){ lb.classList.add('page'); if(S.view==='book'){ const dp=lb.querySelector('[data-phdate]'); dp.outerHTML=`<button class="lb-date" data-pgdel="${id}">Remove this page</button>`; } }
+  if(p.origin==='Library'){ lb.classList.add('page'); if(S.view==='book'){ const dp=lb.querySelector('[data-phdate]'); dp.outerHTML=`<button class="lb-date" data-pgcover="${id}">Use as cover</button> <button class="lb-date" data-pgdel="${id}">Remove this page</button>`; } }
   document.body.appendChild(lb);
   const note=document.createElement('p'); note.className='lb-full'; lb.firstChild.appendChild(note);
   if(p.driveId){
@@ -1098,11 +1103,12 @@ async function loadFull(lb, p, interactive){
   }
 }
 document.addEventListener('click', async e=>{
-  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-restorerec],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-doclink],[data-doctest],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-otd],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
+  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-restorerec],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-doclink],[data-doctest],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-pgcover],[data-otd],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
   if(!c) return;
   const d = c.dataset;
   if(c.classList.contains('lightbox')){ if(e.target.closest('.lb-edit,.lb-full a')) return; c.remove(); return; }
   if('phdate' in d){ const p=PH[d.phdate]; const v=p.date&&p.date.length===10?p.date:''; c.parentElement.outerHTML=`<p class="lb-edit"><label>Taken <input type="date" id="phd" value="${v}" max="${localDay()}"></label> <span class="muted">or year only</span> <input id="phy" type="number" inputmode="numeric" min="1980" max="${TODAY.getFullYear()}" placeholder="e.g. 2009" value="${p.date&&p.date.length===4?p.date:''}" style="width:6.5em"> <button class="btn small" data-phsave="${d.phdate}">Save</button></p>`; return; }
+  if('pgcover' in d){ const b=BOOKS().find(x=>x.id===S.book); await saveRecord('books', {...b, coverPhoto:d.pgcover}); document.querySelector('.lightbox')?.remove(); toast('Cover set'); return; }
   if('pgdel' in d){ const b=BOOKS().find(x=>x.id===S.book); await saveRecord('books', {...b, photos:(b.photos||[]).filter(x=>x!==d.pgdel)}); document.querySelector('.lightbox')?.remove(); toast('Page removed'); return; }
   if('lbfull' in d){ const lb=c.closest('.lightbox'); const p=Object.values(PH).find(x=>x.driveId===d.lbfull); c.parentElement.textContent='Loading full size…'; await loadFull(lb, p, true); return; }
   if('phcover' in d){ const t=byId[S.tree]; await saveRecord('trees', {...t, cover:d.phcover||null}); document.querySelector('.lightbox')?.remove(); toast(d.phcover?'Tree photo set':'Showing the newest photo'); return; }
