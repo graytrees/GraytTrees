@@ -43,20 +43,22 @@ export async function refreshCollectionDoc(data, day) {
   if (!id) return { skipped: true };
   const t = new Date(), today = new Date(t.getFullYear(), t.getMonth(), t.getDate());
   const blocks = buildBlocks(data, { today, backupDay: day });
+  let step = 'reading the Doc';
   try {
     // pass 1: text. If Nathan happened to be editing at that very moment, the Doc's revision moves on
     // and Google refuses the change (nothing written) – read it again and retry once.
     for (let attempt = 0; ; attempt++) {
       const doc = await getDoc(id);
+      step = 'writing the text';
       try { await update(doc, contentRequests(doc, blocks)); break; }
       catch (e) { if (attempt || e.status !== 400 || !/revision/i.test(e.message)) throw e; }
     }
     // pass 2: styling, worked out from the Doc as it now stands
-    const doc2 = await getDoc(id);
+    step = 'reading the Doc back'; const doc2 = await getDoc(id);
     const style = styleRequests(doc2, blocks);
-    if (style.length) await update(doc2, style);
+    step = 'writing the styling'; if (style.length) await update(doc2, style);
     // check
-    const problems = checkDoc(await getDoc(id), data, day);
+    step = 'checking the result'; const problems = checkDoc(await getDoc(id), data, day);
     if (problems.length) throw new Error('Check after refresh: ' + problems.join('; '));
     const trees = (data.trees || []).filter(x => !x.deleted && x.status !== 'past').length;
     await saveMeta('collectionDoc', { lastDay: day, lastMs: Date.now(), trees, error: '' });
@@ -64,11 +66,15 @@ export async function refreshCollectionDoc(data, day) {
   } catch (e) {
     let msg = String(e.message || e);
     if (e.status === 403 && /SERVICE_DISABLED|has not been used|is disabled/i.test(msg)) msg = 'The Google Docs service is switched off for the app (Google Cloud › APIs › enable "Google Docs API").';
-    else if (e.status === 404 || e.status === 403) msg = 'The app can no longer open the collection Doc – link it again (More › Settings & backups).';
+    else if (e.status === 404 || e.status === 403) msg = `Google refused while ${step} (${e.status}). ` + (googleSays(msg) || 'No reason given.') + (step === 'reading the Doc' ? ' Try linking the Doc again.' : '');
+    else msg = `Failed while ${step}: ` + msg;
     await saveMeta('collectionDoc', { error: msg, errorMs: Date.now() }).catch(() => {});
     throw new Error(msg);
   }
 }
+
+/** Pulls Google's own explanation out of an error body like '{"error":{"message":"…"}}'. */
+function googleSays(text) { const m = /"message":\s*"([^"]+)/.exec(text); return m ? m[1] : ''; }
 
 /* ---------- linking the Doc (one-off, from a tap) ---------- */
 let pickerLoading = null;
