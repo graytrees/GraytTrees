@@ -129,4 +129,24 @@ export async function linkCollectionDoc() {
   return { id: d.id, name: doc.title || d.name };
 }
 
+/** One-tap check of exactly what Google lets the app do with the linked Doc (shown on the card). */
+export async function testDocAccess() {
+  const id = state.meta.collectionDoc?.id;
+  const token = await getToken(true);
+  const out = [];
+  out.push('Doc id ' + (id ? id.slice(0, 6) + '…' + id.slice(-4) : 'none'));
+  try { const t = await (await fetch('https://oauth2.googleapis.com/tokeninfo?access_token=' + encodeURIComponent(token))).json();
+    out.push('Sign-in: ' + (t.email || '?') + ', scopes ' + String(t.scope || t.error_description || '?').replace(/https:\/\/www\.googleapis\.com\/auth\//g, '') + ', app ' + String(t.aud || t.azp || '?').split('-')[0]); }
+  catch (e) { out.push('Sign-in check failed'); }
+  if (id) {
+    out.push(await googleApi(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?fields=name,capabilities/canEdit`)
+      .then(r => r.json()).then(f => `Drive: OK (can edit ${f.capabilities?.canEdit ? 'yes' : 'no'})`)
+      .catch(e => `Drive: ${e.status} ${googleSays(e.message)}`));
+    out.push(await getDoc(id).then(d => `Docs: OK ("${d.title}")`).catch(e => `Docs: ${e.status} ${googleSays(e.message)}`));
+  }
+  const diag = out.join(' · ');
+  await saveMeta('collectionDoc', { diag, diagMs: Date.now() });
+  return diag;
+}
+
 export const todayDay = () => ymd(new Date());
