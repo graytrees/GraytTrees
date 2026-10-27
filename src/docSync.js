@@ -39,7 +39,7 @@ const update = (doc, requests) => googleApi(DOCS + encodeURIComponent(doc.docume
 /** Rewrites the linked Doc from `data` (a full export). Nathan's Lessons section is never touched.
  *  Returns {ok, trees} or throws with a plain-English reason. Does nothing if no Doc is linked. */
 export async function refreshCollectionDoc(data, day) {
-  const id = state.meta.collectionDoc?.id;
+  const id = state.meta.collectionDoc?.docId;
   if (!id) return { skipped: true };
   const t = new Date(), today = new Date(t.getFullYear(), t.getMonth(), t.getDate());
   const blocks = buildBlocks(data, { today, backupDay: day });
@@ -125,13 +125,13 @@ export async function linkCollectionDoc() {
       .catch(x => `Drive can't see it either (${x.status || ''})`);
     throw new Error(`Google Docs ${e.status || ''}: ${googleSays(e.message) || e.message}. ${drive}. Picked file ${d.id}.`);
   });
-  await saveMeta('collectionDoc', { id: d.id, name: doc.title || d.name, linkedMs: Date.now(), lastDay: '', lastMs: 0, error: '' });
+  await saveMeta('collectionDoc', { docId: d.id, name: doc.title || d.name, linkedMs: Date.now(), lastDay: '', lastMs: 0, error: '' });
   return { id: d.id, name: doc.title || d.name };
 }
 
 /** One-tap check of exactly what Google lets the app do with the linked Doc (shown on the card). */
 export async function testDocAccess() {
-  const id = state.meta.collectionDoc?.id;
+  const id = state.meta.collectionDoc?.docId;
   const token = await getToken(true);
   const out = [];
   out.push('Doc id ' + (id ? id.slice(0, 6) + '…' + id.slice(-4) : 'none'));
