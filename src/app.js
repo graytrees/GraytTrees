@@ -155,11 +155,11 @@ function groupList(gs){
   return gs.map(g=>`<i class="${g.done?'d':''}">${esc(g.name.toLowerCase())}${g.done?' ✓':''}</i>`).join(', ');
 }
 function wireCard(){
-  const soon = TREES.filter(t=>t.status!=='past').map(t=>({t, w:wireOf(t)})).filter(({w})=>w && (w.due - TODAY) < 14*864e5).sort((a,b)=>a.w.due-b.w.due);
+  const soon = TREES.filter(t=>t.status!=='past').map(t=>({t, w:wireOf(t)})).filter(({w})=>w && w.due <= dayStart(TODAY)).sort((a,b)=>a.w.due-b.w.due);
   if(!soon.length) return '';
   return `<div class="card home-card wirechk"><div class="home-h"><b>Check wire</b><span>${soon.length} tree${soon.length>1?'s':''}</span></div>
-    <p class="muted" style="margin:0 0 6px;font-size:calc(14px*var(--fs))">Every 3 months, so wire doesn't cut into growing branches.</p>
-    ${soon.map(({t,w})=>{ const late = w.due < dayStart(TODAY); return `<div class="due-item"><button class="due-main" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${w.checked?'Last checked':'Wired'} ${fmtD(w.lastCheck)}</span></span><span class="pill ${late?'late':'due'}">${late?'Overdue':'Due '+fmtD(localDay(w.due)).replace(/ \d{4}$/,'')}</span></button>
+    <p class="muted" style="margin:0 0 6px;font-size:calc(14px*var(--fs))">So wire doesn't cut into growing branches: every 3 months, or 8 weeks for tropicals wired October to March.</p>
+    ${soon.map(({t,w})=>{ const late = w.due < dayStart(TODAY), every = w.fast ? '8-week check' : '3-month check'; return `<div class="due-item"><button class="due-main" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${w.checked?'Last checked':'Wired'} ${fmtD(w.lastCheck)} · ${every}</span></span><span class="pill ${late?'late':'due'}">${late?'Overdue':'Due today'}</span></button>
       <span class="wire-acts"><button class="btn ghost small" data-log="${t.id}" data-logkinds="wirechk">${ico('check')}Checked</button><button class="btn ghost small" data-log="${t.id}" data-logkinds="unwire">${ico('wire')}Removed</button></span></div>`; }).join('')}</div>`;
 }
 function homeTop(){

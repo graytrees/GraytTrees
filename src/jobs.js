@@ -33,9 +33,11 @@ export function parseD(s){ if(!s) return null; const p=s.split('-').map(Number);
 export function addMonths(y,m,n){ const d=new Date(y,m-1+n,1); return [d.getFullYear(), d.getMonth()+1]; }
 export function tickTitle(o){ const pine=o.g.name==='Black pines'; const verb={struct:'Hard prune',wire:'Wire',defol:pine?'Decandle':'Defoliate',clean:pine?'Needle clean-up':'Clean out dead needles',potash:'Liquid potash (fortnightly)',prune:'Start trimming new growth'}[o.task]; return `${verb}: ${o.g.name.toLowerCase()} (${o.trees.length} tree${o.trees.length>1?'s':''})`; }
 
-/* Wire checks: a tree logged as "Wired" needs its wire checked every 3 months so it doesn't cut
+/* Wire checks: a tree logged as "Wired" needs its wire checked every 3 months (8 weeks for the fast-growing
+ * tropicals – figs, clerodendrums, bougainvillea, jaboticaba – when wired October to March) so it doesn't cut
  * into a growing branch. Logging "Wire checked" restarts the 3 months; "Wire removed" ends it. */
 export const WIRE_CHECK_MONTHS = 3;
+export const WIRE_FAST_WEEKS = 8, WIRE_FAST = ['fig','cler','bougie','african'], WIRE_FAST_MONTHS = [10,11,12,1,2,3];
 // Wiring logged before 2026 is old history: that wire came off long ago (removals weren't recorded then).
 export const WIRE_FROM = '2026-01-01';
 export function addMonthsDate(d, n){ const x = new Date(d.getFullYear(), d.getMonth()+n, d.getDate()); if(x.getDate()!==d.getDate()) x.setDate(0); return x; }
@@ -44,8 +46,9 @@ export function wireStatus(t, lastOf){
   const kinds = l._kinds || l.actions || [];
   if(kinds.includes('unwire') && !kinds.includes('wire')) return null;          // wire is off
   const wired = kinds.includes('wire') ? l : (lastOf(t.id, ['wire']) || l);
-  const from = parseD(l.date), due = addMonthsDate(from, WIRE_CHECK_MONTHS);
-  return { since: wired.date, lastCheck: l.date, checked: !kinds.includes('wire'), due };
+  const from = parseD(l.date), fast = WIRE_FAST.includes(t.group) && WIRE_FAST_MONTHS.includes(from.getMonth()+1);
+  const due = fast ? new Date(from.getFullYear(), from.getMonth(), from.getDate() + WIRE_FAST_WEEKS*7) : addMonthsDate(from, WIRE_CHECK_MONTHS);
+  return { since: wired.date, lastCheck: l.date, checked: !kinds.includes('wire'), due, fast };
 }
 const fmtShort = d => `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 
