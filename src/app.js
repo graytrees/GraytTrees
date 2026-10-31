@@ -7,7 +7,7 @@ import { linkCollectionDoc, testDocAccess } from './docSync.js';
 import { runImport } from './importer.js';
 import { signOut, auth } from './firebase.js';
 import { TIPS, NOTES, COLLECTION } from './knowledge.js';
-import { GUIDE, CALS, calOf, AZ_AFTER, repotWin, autumnWin, evMin, addMonths, makeJobs, tickTitle } from './jobs.js';
+import { GUIDE, CALS, calOf, AZ_AFTER, repotWin, autumnWin, evMin, addMonths, makeJobs, tickTitle, wireStatus } from './jobs.js';
 
 const D = { pots: [], done: [] };
 const TODAY = new Date();
@@ -23,7 +23,7 @@ function localDay(d=new Date()){ return d.getFullYear()+'-'+String(d.getMonth()+
 const ACT = {
   prune:{label:'Light prune', icon:'scissors'}, hard:{label:'Hard prune', icon:'cutter'},
   root:{label:'Root prune', icon:'roots'}, repot:{label:'Repot', icon:'pot'},
-  wire:{label:'Wired', icon:'wire'}, unwire:{label:'Wire removed', icon:'wire'},
+  wire:{label:'Wired', icon:'wire'}, wirechk:{label:'Wire checked', icon:'wire'}, unwire:{label:'Wire removed', icon:'wire'},
   style:{label:'Styled', icon:'brush'}, defol:{label:'Defoliated', icon:'leaf'},
   fert:{label:'Fertilised', icon:'drop'}, fung:{label:'Fungicide', icon:'shield'},
   insect:{label:'Insecticide', icon:'bug'}, buy:{label:'Acquired', icon:'tag'},
@@ -32,9 +32,9 @@ const ACT = {
 Object.keys(ACT).forEach(k=>ACT[k].kind=k);
 ACT.fung.label='Mancozeb spray'; ACT.insect.label='Maverick spray';
 /* Jobs shown on the Log screen: editable (rename, hide, add your own, shortcuts). Saved with your records. */
-const KINDS = [['prune','Prune'],['hard','Hard prune'],['root','Root prune'],['repot','Repot'],['wire','Wire'],['unwire','Wire removed'],['defol','Defoliate'],['style','Styling'],['fert','Feed'],['fung','Fungicide'],['insect','Insecticide'],['note','Other / observation']];
-const KIND_ICON = {prune:'scissors',hard:'cutter',root:'roots',repot:'pot',wire:'wire',unwire:'wire',defol:'leaf',style:'brush',fert:'drop',fung:'shield',insect:'bug',note:'eye'};
-let JOBS = ['prune','hard','root','repot','wire','unwire','defol','style','fert','fung','insect','note'].map(id=>({id, label:ACT[id].label, kind:id, hidden:false}));
+const KINDS = [['prune','Prune'],['hard','Hard prune'],['root','Root prune'],['repot','Repot'],['wire','Wire'],['wirechk','Wire checked'],['unwire','Wire removed'],['defol','Defoliate'],['style','Styling'],['fert','Feed'],['fung','Fungicide'],['insect','Insecticide'],['note','Other / observation']];
+const KIND_ICON = {prune:'scissors',hard:'cutter',root:'roots',repot:'pot',wire:'wire',wirechk:'wire',unwire:'wire',defol:'leaf',style:'brush',fert:'drop',fung:'shield',insect:'bug',note:'eye'};
+let JOBS = ['prune','hard','root','repot','wire','wirechk','unwire','defol','style','fert','fung','insect','note'].map(id=>({id, label:ACT[id].label, kind:id, hidden:false}));
 let COMBOS = [{id:'cb1', label:'Repot + root prune', jobs:['repot','root']}, {id:'cb2', label:'Prune & wire', jobs:['prune','wire']}, {id:'cb3', label:'Full workover', jobs:['hard','root','repot']}];
 function applyJobs(){ JOBS.forEach(j=>{ ACT[j.id] = {label:j.label, icon:KIND_ICON[j.kind]||'eye', kind:j.kind}; }); }
 let jobsTimer; function saveJobs(){ applyJobs(); clearTimeout(jobsTimer); jobsTimer=setTimeout(()=>saveMeta('settings',{jobs:JOBS, combos:COMBOS}),600); }
@@ -154,6 +154,14 @@ function groupList(gs){
   if(gs.length>=6 && !some.length){ const inc=new Set(gs.map(g=>g.name)); const miss=Object.entries(GUIDE).filter(([k,v])=>k!=='other' && !inc.has(v.name) && TREES.some(t=>t.status!=='past'&&t.group===k)).map(([,v])=>v.name.toLowerCase()); if(miss.length<=3) return 'all except '+miss.join(', '); }
   return gs.map(g=>`<i class="${g.done?'d':''}">${esc(g.name.toLowerCase())}${g.done?' ✓':''}</i>`).join(', ');
 }
+function wireCard(){
+  const soon = TREES.filter(t=>t.status!=='past').map(t=>({t, w:wireOf(t)})).filter(({w})=>w && (w.due - TODAY) < 14*864e5).sort((a,b)=>a.w.due-b.w.due);
+  if(!soon.length) return '';
+  return `<div class="card home-card wirechk"><div class="home-h"><b>Check wire</b><span>${soon.length} tree${soon.length>1?'s':''}</span></div>
+    <p class="muted" style="margin:0 0 6px;font-size:calc(14px*var(--fs))">Every 3 months, so wire doesn't cut into growing branches.</p>
+    ${soon.map(({t,w})=>{ const late = w.due < dayStart(TODAY); return `<div class="due-item"><button class="due-main" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${w.checked?'Last checked':'Wired'} ${fmtD(w.lastCheck)}</span></span><span class="pill ${late?'late':'due'}">${late?'Overdue':'Due '+fmtD(localDay(w.due)).replace(/ \d{4}$/,'')}</span></button>
+      <span class="wire-acts"><button class="btn ghost small" data-log="${t.id}" data-logkinds="wirechk">${ico('check')}Checked</button><button class="btn ghost small" data-log="${t.id}" data-logkinds="unwire">${ico('wire')}Removed</button></span></div>`; }).join('')}</div>`;
+}
 function homeTop(){
   const active = TREES.filter(t=>t.status!=='past');
   const ym = TODAY.getFullYear()+'-'+String(NOW_M).padStart(2,'0');
@@ -199,7 +207,7 @@ function homeTop(){
     S.kbStart ||= Date.now(); const kb = Math.min(14, (Date.now()-S.kbStart)/1000);
     feature = `<button class="feature" data-tree="${t.id}" aria-label="${esc(t.name)}"><img class="bg" src="${S.featureFull?.id===pid?S.featureFull.url:p.src}" alt="" style="animation-delay:-${kb.toFixed(2)}s"><img class="fg" src="${S.featureFull?.id===pid?S.featureFull.url:p.src}" alt="" ${p.driveId&&S.featureFull?.id!==pid?`data-full="${p.driveId}" data-pid="${pid}"`:''}><span class="cap"><b>${esc(t.name)}</b></span></button>`; }
   return `<div class="home-band">${ukiyoBand().replace('xMidYMid slice','xMaxYMid slice')}<span><b>${MONTHS_L[NOW_M-1]}</b>${season.charAt(0).toUpperCase()+season.slice(1)} in Brisbane</span></div>
-  ${repotCard}${satCard}
+  ${repotCard}${wireCard()}${satCard}
   <div class="home-grid${feature?'':' solo'}"><div>${monthCard}</div>${feature?`<div>${feature}</div>`:''}</div>`;
 }
 function treeCard(t){
@@ -246,7 +254,8 @@ function viewTree(){
       <div class="facts">
         <div class="fact"><span class="k">${ico('pot')}Last repot</span><div class="v num">${lr?fmtD(lr.date,lr.precision).replace(/^\d+ /,''):'—'}</div><div class="s muted">${lr?ago(lr.date):''}</div></div>
         <div class="fact"><span class="k">${ico('scissors')}Last prune</span><div class="v num">${lp?fmtD(lp.date,lp.precision).replace(/^\d+ /,''):'—'}</div><div class="s muted">${lp?ago(lp.date):''}</div></div>
-        <div class="fact"><span class="k">${ico('wire')}Last wired</span><div class="v num">${lw?fmtD(lw.date,lw.precision).replace(/^\d+ /,''):'—'}</div><div class="s muted">${lw?ago(lw.date):''}</div></div>
+        ${(()=>{ const w = t.status==='past'?null:wireOf(t); if(!w) return `<div class="fact"><span class="k">${ico('wire')}Last wired</span><div class="v num">${lw?fmtD(lw.date,lw.precision).replace(/^\d+ /,''):'—'}</div><div class="s muted">${lw?ago(lw.date)+' · wire off':''}</div></div>`;
+   const late = w.due < dayStart(TODAY); return `<div class="fact"><span class="k">${ico('wire')}Wire on</span><div class="v num"${late?' style="color:var(--rust)"':''}>Check ${late?'now':fmtD(localDay(w.due))}</div><div class="s muted">${w.checked?'Last checked':'Wired'} ${fmtD(w.lastCheck)}</div></div>`; })()}
         <div class="fact"><span class="k">${ico('history')}On record</span><div class="v num">${L.length} entries</div><div class="s muted">since ${L.length?parseD(L[L.length-1].date).getFullYear():'—'}</div></div>
       </div>
       ${r?`<p style="margin:14px 0 0"><span class="pill ${r.cls}">${esc(r.text)}</span> <span class="muted" style="font-size:calc(14px*var(--fs))">Repot every ${evText(t)}${t.every?' (older, larger tree)':' for '+esc(GUIDE[t.group].name.toLowerCase())}</span></p>`:''}
@@ -391,17 +400,20 @@ function tabRem(t){
 }
 
 /* ---- monthly look-ahead: what falls due in a given month ---- */
-const JC = () => makeJobs({trees:TREES, lastOf, today:TODAY});
+const lastOfK = (id, keys) => { const l = lastOf(id, keys); return l && {...l, _kinds:l.actions.map(kindOf)}; };
+const JC = () => makeJobs({trees:TREES, lastOf:lastOfK, today:TODAY});
+const wireOf = t => wireStatus(t, lastOfK);
 const repotMonth = t => JC().repotMonth(t);
 function lookahead(y,m){ return {...JC().month(y,m), routines: ROUTINES.map(r=>({r, dates:routineDates(r,y,m)}))}; }
 function viewAhead(){
   const sel = S.ahead || 0, [y,m] = addMonths(TODAY.getFullYear(), NOW_M, sel), A = lookahead(y,m);
-  const nItems = A.repots.length + A.opens.length + A.coll.length + A.autumn.length;
+  const nItems = A.repots.length + A.opens.length + A.coll.length + A.autumn.length + A.wires.length;
   return `<div class="section-h" style="margin-top:8px"><div><span class="eyebrow">Monthly look-ahead</span><h2>What falls due</h2></div></div>
-  <div class="chips" role="group" aria-label="Month">${[0,1,2,3,4,5].map(i=>{const [yy,mm]=addMonths(TODAY.getFullYear(),NOW_M,i); const n=(()=>{const a=lookahead(yy,mm); return a.repots.length+a.opens.length+a.coll.length+a.autumn.length;})(); return `<button class="chip" data-ahead="${i}" aria-pressed="${sel===i}">${MONTHS[mm-1]}${yy!==TODAY.getFullYear()?' '+String(yy).slice(2):''} <span class="num muted">${n}</span></button>`;}).join('')}</div>
+  <div class="chips" role="group" aria-label="Month">${[0,1,2,3,4,5].map(i=>{const [yy,mm]=addMonths(TODAY.getFullYear(),NOW_M,i); const n=(()=>{const a=lookahead(yy,mm); return a.repots.length+a.opens.length+a.coll.length+a.autumn.length+a.wires.length;})(); return `<button class="chip" data-ahead="${i}" aria-pressed="${sel===i}">${MONTHS[mm-1]}${yy!==TODAY.getFullYear()?' '+String(yy).slice(2):''} <span class="num muted">${n}</span></button>`;}).join('')}</div>
   <div class="ahead">
     <div class="card" style="padding:16px">
       <h3 style="font-size:calc(20px*var(--fs))">${MONTHS_L[m-1]} ${y}</h3>
+      ${A.wires.length?`<span class="eyebrow" style="display:block;margin-top:12px">Wire checks (${A.wires.length})</span>${A.wires.map(({t,w})=>`<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${w.checked?'Last checked':'Wired'} ${fmtD(w.lastCheck)} · check by ${fmtD(localDay(w.due))}</span></span>${ico('wire')}</button>`).join('')}`:''}
       ${A.repots.length?`<span class="eyebrow" style="display:block;margin-top:12px">Repots due (${A.repots.length})</span>${A.repots.map(t=>{const l=lastOf(t.id,['repot']); return `<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${l?'Last repot '+fmtD(l.date,l.precision):'No repot on record'} · every ${evText(t)} yrs</span></span>${ico('pot')}</button>`;}).join('')}`:''}
       ${A.autumn.length?`<span class="eyebrow" style="display:block;margin-top:14px">Autumn repot option (${A.autumn.length}) · light root work only</span>${A.autumn.map(t=>{const l=lastOf(t.id,['repot']); return `<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${t.autumn==='yes'?'Flagged by you':'Overdue'}${l?' · last repot '+fmtD(l.date,l.precision):''}</span></span><span class="pill unc">Optional</span></button>`;}).join('')}`:''}
       ${A.opens.length?`<span class="eyebrow" style="display:block;margin-top:14px">Seasons opening</span>${A.opens.map(o=>`<div class="due-item"><span class="ph" style="width:44px;height:44px;border-radius:10px;flex:none;background:${TASKS[o.task].c};color:#fff">${ico(o.task==='wire'?'wire':o.task==='defol'?'leaf':o.task==='potash'?'drop':o.task==='clean'?'chop':o.task==='struct'?'cutter':'scissors')}</span><span class="t"><b>${esc(tickTitle(o))}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${o.trees.map(t=>esc(t.name)).slice(0,4).join(', ')}${o.trees.length>4?' and '+(o.trees.length-4)+' more':''}</span></span></div>`).join('')}`:''}
@@ -633,8 +645,8 @@ function viewImport(){
 }
 /* --- quick log sheet --- */
 const LG = {trees:new Set(), acts:new Set(), date:'', note:'', mix:'', fileObjs:[], err:''};
-function openLog(treeId){
-  LG.trees = new Set(treeId?[treeId]:[]); LG.acts=new Set(); LG.date=localDay(); LG.note=''; LG.mix=''; LG.fileObjs=[]; LG.err=''; LG.filter='all'; LG.editing=false;
+function openLog(treeId, kinds){
+  LG.trees = new Set(treeId?[treeId]:[]); LG.acts=new Set((kinds||[]).map(k=>(JOBS.find(j=>j.kind===k&&!j.hidden)||JOBS.find(j=>j.kind===k)||{}).id).filter(Boolean)); LG.date=localDay(); LG.note=''; LG.mix=''; LG.fileObjs=[]; LG.err=''; LG.filter='all'; LG.editing=false;
   renderSheet();
 }
 function renderSheet(){
@@ -1021,7 +1033,9 @@ function sync(){
   D.pots = state.pots; D.done = state.meta.importNotes?.done || [];
   MIXES = state.mixes.slice().sort((a,b)=>a.name.localeCompare(b.name));
   if(!MIXES.length) MIXES = DEFAULT_MIXES;
-  const st = state.meta.settings; if(st && st.jobs){ JOBS=st.jobs; COMBOS=st.combos||[]; applyJobs(); }
+  const st = state.meta.settings; if(st && st.jobs){ JOBS=st.jobs.slice(); COMBOS=st.combos||[];
+    if(!JOBS.some(j=>j.kind==='wirechk')){ const i=JOBS.findIndex(j=>j.kind==='wire'); JOBS.splice(i<0?JOBS.length:i+1, 0, {id:'wirechk', label:'Wire checked', kind:'wirechk', hidden:false}); }
+    applyJobs(); }
   S.ticks = {}; LOGS.forEach(l=>{ if(l.flags.includes('tick')) S.ticks[l.id]='tick'; });
 }
 let raf=0;
@@ -1151,7 +1165,7 @@ document.addEventListener('click', async e=>{
     catch(err){ S.importResult='Import stopped: '+err.message+'. Run it again to continue.'; out.textContent=S.importResult; out.style.color='var(--rust)'; }
     S.importing=false; refresh(); c.disabled=false; return;
   }
-  if('lgt' in d){ LG.trees.has(d.lgt)?LG.trees.delete(d.lgt):LG.trees.add(d.lgt); LG.err=''; const sc=$('.picker').scrollTop, ss=$('.sheet').scrollTop; renderSheet(); $('.picker').scrollTop=sc; $('.sheet').scrollTop=ss; return; }
+  if('lgt' in d){ LG.trees.has(d.lgt)?LG.trees.delete(d.lgt):LG.trees.add(d.lgt); LG.err=''; const pk=$('.tree-picker'), sc=pk?.scrollTop||0, ss=$('.sheet')?.scrollTop||0; renderSheet(); if($('.tree-picker')) $('.tree-picker').scrollTop=sc; $('.sheet').scrollTop=ss; return; }
   if('lga' in d){ LG.acts.has(d.lga)?LG.acts.delete(d.lga):LG.acts.add(d.lga); LG.err=''; keepScroll(renderSheet); return; }
   if('lgf' in d){ LG.filter=d.lgf; keepScroll(renderSheet); return; }
   if('lgall' in d){ document.querySelectorAll('[data-lgt]').forEach(b=>LG.trees.add(b.dataset.lgt)); keepScroll(renderSheet); return; }
@@ -1176,7 +1190,7 @@ document.addEventListener('click', async e=>{
     render(); return; }
   if('calsp' in d){ const [ci,k]=d.calsp.split(':'); S.calSp={...(S.calSp||{}), [ci]:k}; render(); return; }
   if('tick' in d){ const l=LOGS.find(x=>x.id===d.tick); const flags=(l.flags||[]).filter(f=>!['tick','bulk','confirmed'].includes(f)).concat(d.val==='tick'?['tick']:['confirmed']); setLogFlags(d.tick, flags); return; }
-  if('log' in d){ openLog(d.log||null); return; }
+  if('log' in d){ openLog(d.log||null, d.logkinds?d.logkinds.split(','):null); return; }
   if('zoom' in d){ openLightbox(d.zoom); return; }
   if('nav' in d){ S.q=''; S.group='all'; go(d.nav); return; }
   if('otd' in d){ S.newLog=null; S.cmp={tree:d.otdtree, a:d.otd, b:null, pick:null}; go('tree',{tree:d.otdtree, tab:'photos'}); setTimeout(()=>document.querySelector('.cmp')?.scrollIntoView({behavior:'smooth',block:'start'}),60); return; }

@@ -33,6 +33,22 @@ export function parseD(s){ if(!s) return null; const p=s.split('-').map(Number);
 export function addMonths(y,m,n){ const d=new Date(y,m-1+n,1); return [d.getFullYear(), d.getMonth()+1]; }
 export function tickTitle(o){ const pine=o.g.name==='Black pines'; const verb={struct:'Hard prune',wire:'Wire',defol:pine?'Decandle':'Defoliate',clean:pine?'Needle clean-up':'Clean out dead needles',potash:'Liquid potash (fortnightly)',prune:'Start trimming new growth'}[o.task]; return `${verb}: ${o.g.name.toLowerCase()} (${o.trees.length} tree${o.trees.length>1?'s':''})`; }
 
+/* Wire checks: a tree logged as "Wired" needs its wire checked every 3 months so it doesn't cut
+ * into a growing branch. Logging "Wire checked" restarts the 3 months; "Wire removed" ends it. */
+export const WIRE_CHECK_MONTHS = 3;
+// Wiring logged before 2026 is old history: that wire came off long ago (removals weren't recorded then).
+export const WIRE_FROM = '2026-01-01';
+export function addMonthsDate(d, n){ const x = new Date(d.getFullYear(), d.getMonth()+n, d.getDate()); if(x.getDate()!==d.getDate()) x.setDate(0); return x; }
+export function wireStatus(t, lastOf){
+  const l = lastOf(t.id, ['wire','unwire','wirechk']); if(!l || (l.date||'') < WIRE_FROM) return null;
+  const kinds = l._kinds || l.actions || [];
+  if(kinds.includes('unwire') && !kinds.includes('wire')) return null;          // wire is off
+  const wired = kinds.includes('wire') ? l : (lastOf(t.id, ['wire']) || l);
+  const from = parseD(l.date), due = addMonthsDate(from, WIRE_CHECK_MONTHS);
+  return { since: wired.date, lastCheck: l.date, checked: !kinds.includes('wire'), due };
+}
+const fmtShort = d => `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+
 /** Jobs engine. lastOf(treeId, kinds) returns the latest matching history entry. */
 export function makeJobs({ trees, lastOf, today = new Date() }){
   const nowY = today.getFullYear(), nowM = today.getMonth()+1;
@@ -45,7 +61,13 @@ export function makeJobs({ trees, lastOf, today = new Date() }){
     for(let i=0;i<24;i++){ const [yy,mm]=addMonths(y,m,i); if(win.includes(mm)) return [yy,mm]; }
     return null;
   }
+  function wireChecks(y,m){                     // checks falling due in month y-m (plus any overdue, for the current month)
+    const cur = y===nowY && m===nowM, end = new Date(y, m, 0, 23, 59);
+    return active.map(t=>({t, w:wireStatus(t, lastOf)})).filter(({w})=> w && (cur ? w.due<=end : (w.due.getFullYear()===y && w.due.getMonth()+1===m)))
+      .sort((a,b)=>a.w.due-b.w.due);
+  }
   function month(y,m){
+    const wires = wireChecks(y,m);
     const repots = active.filter(t=>{ const r=repotMonth(t); return r && r[0]===y && r[1]===m; });
     const prev = m===1?12:m-1, opens=[];
     for(const [k,g] of Object.entries(GUIDE)){
@@ -57,11 +79,11 @@ export function makeJobs({ trees, lastOf, today = new Date() }){
     const overdueBy = t => { const l=lastOf(t.id,['repot']); if(!l) return false; const d=parseD(l.date); return (d.getFullYear()+evMin(t))*12+d.getMonth()+1 <= y*12+m; };
     const autumn = active.filter(t=>!repots.includes(t) && autumnWin(t).includes(m) && (t.autumn==='yes' || overdueBy(t)));
     const coll = COLLECTION[m]||[];
-    const items = [...repots.map(t=>'Repot '+t.name), ...autumn.map(t=>'Autumn option: repot '+t.name+' (light root work)'), ...opens.map(tickTitle), ...coll];
+    const items = [...wires.map(({t,w})=>`Check wire: ${t.name} (${w.checked?'last checked':'wired'} ${fmtShort(parseD(w.lastCheck))}; due ${fmtShort(w.due)})`), ...repots.map(t=>'Repot '+t.name), ...autumn.map(t=>'Autumn option: repot '+t.name+' (light root work)'), ...opens.map(tickTitle), ...coll];
     const notes = (TIPS[m]||[]).map(x=>x.t+': '+x.x);
-    return {repots, opens, autumn, coll, items, notes, title:`Bonsai jobs – ${MONTHS_L[m-1]} ${y}`};
+    return {repots, opens, autumn, coll, wires, items, notes, title:`Bonsai jobs – ${MONTHS_L[m-1]} ${y}`};
   }
-  return { repotMonth, month };
+  return { repotMonth, month, wireChecks };
 }
 
 /** The monthly "Bonsai jobs – <Month Year>" checklist for month y-m, worked out from a backup
@@ -70,7 +92,7 @@ export function monthlyJobs(data, y, m){
   const settings = (data.meta||[]).find(x=>x.id==='settings');
   const kindOf = a => (settings?.jobs||[]).find(j=>j.id===a)?.kind || a;   // a renamed "Repot" job still counts as a repot
   const logs = (data.logs||[]).filter(l=>!l.deleted).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const lastOf = (id,kinds) => logs.find(l=>(l.trees||[]).includes(id) && !(l.flags||[]).includes('tick') && (l.actions||[]).some(a=>kinds.includes(kindOf(a))));
+  const lastOf = (id,kinds) => { const l = logs.find(l=>(l.trees||[]).includes(id) && !(l.flags||[]).includes('tick') && (l.actions||[]).some(a=>kinds.includes(kindOf(a)))); return l && {...l, _kinds:(l.actions||[]).map(kindOf)}; };
   const out = makeJobs({ trees:data.trees||[], lastOf, today:new Date(y,m-1,1) }).month(y,m);
   const last = new Date(y,m,0).getDate();
   return { title:out.title, due:`${y}-${String(m).padStart(2,'0')}-${String(last).padStart(2,'0')}`, items:out.items, notes:out.notes };

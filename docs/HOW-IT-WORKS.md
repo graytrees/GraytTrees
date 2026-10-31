@@ -76,6 +76,7 @@ Testing without the real cloud: `npm run test:ui` runs the app against an in-mem
 - Reminder ticks (Care App same-day ticks marked "not counted" in the app) don't count as repots, the same as in the app.
 
 ## Monthly bonsai jobs (TickTick)
+- Wire checks: a tree logged as **Wired** needs its wire checked every 3 months. It shows on the home screen (Check wire card, from 2 weeks before it's due), in Season › Monthly look-ahead and in that month's TickTick checklist. **Wire checked** restarts the 3 months; **Wire removed** ends it. Wiring logged before 2026 is treated as old history.
 - Each backup also saves `graytrees-jobs-YYYY-MM-DD.json` in GraytTrees/Backups: the "Bonsai jobs" checklists for this month and the next two (same rules as Season › Monthly look-ahead, `monthlyJobs` in `src/jobs.js`).
 - On the 1st, a scheduled Claude task reads the newest jobs file and creates the checklist task in TickTick's Bonsai list. It runs no code. If the newest file is over a fortnight old it adds a reminder to open the app.
 - `scripts/monthly-jobs.mjs` gives the same list from a backup file, for checking by hand.

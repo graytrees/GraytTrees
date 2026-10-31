@@ -495,3 +495,12 @@ body:has(.drive-need) .toast{bottom:calc(196px + env(safe-area-inset-bottom,0px)
 .feature img.fg{object-fit:contain;animation:none;padding:8px 8px 34px}
 .feature .cap{padding:22px 12px 9px}
 @media (prefers-reduced-motion:reduce){.feature img.bg{animation:none}}
+
+/* wire check card (home) */
+.wirechk .due-item{flex-wrap:wrap;row-gap:8px}
+.due-main{display:flex;gap:12px;align-items:center;flex:1 1 100%;min-width:0;background:none;border:0;padding:0;text-align:left;color:inherit}
+.due-main img,.due-main .ph{width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none}
+.due-main .t{flex:1;min-width:0}.due-main .t b{display:block}.due-main .t>.muted{display:block}.due-main .pill{flex:none;white-space:nowrap}
+.wirechk .due-main .t b{white-space:normal;overflow:visible}
+.wire-acts{display:flex;gap:8px;width:100%}
+.wire-acts .btn{flex:1 1 0;justify-content:center;min-width:0;padding-inline:8px}
