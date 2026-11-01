@@ -75,7 +75,7 @@ export function makeJobs({ trees, lastOf, today = new Date() }){
     const prev = m===1?12:m-1, opens=[];
     for(const [k,g] of Object.entries(GUIDE)){
       const ts = active.filter(t=>t.group===k); if(!ts.length) continue;
-      for(const task of ['struct','wire','defol','clean','potash','prune']){
+      for(const task of ['struct','defol','clean','potash','prune']){   // wiring: per-tree wire checks instead
         const w = g.rows[task]||[]; if(w.includes(m) && !w.includes(prev)) opens.push({task, g, trees:ts});
       }
     }

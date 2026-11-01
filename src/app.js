@@ -181,25 +181,22 @@ function homeTop(){
     const nextUp = () => { const fut = ROUTINES.map(r=>{ const all=[...routineDates(r,sat.getFullYear(),sat.getMonth()+1), ...routineDates(r,...addMonths(sat.getFullYear(),sat.getMonth()+1,1))]; return [r, all.find(d=>d>sat)]; }).filter(x=>x[1]).sort((a,b)=>a[1]-b[1])[0]; return fut ? `${fut[0].name} on Sat ${fut[1].getDate()} ${MONTHS[fut[1].getMonth()]}` : ''; };
     satCard = `<div class="card home-card sat"><div class="home-h"><b>${TODAY.getDay()===6?'Today':'Tomorrow'} · Saturday routine</b></div>${rows || `<p class="muted" style="margin:4px 0 0">Nothing scheduled this Saturday. Next: ${esc(nextUp())}.</p>`}</div>`;
   }
-  // this month's jobs, ticked off from what's been logged this month
-  const monthLogs = LOGS.filter(l => (l.date||'').startsWith(ym) && S.ticks[l.id]!=='tick');
+  // this month's seasonal jobs: a reminder of what you could do this month, nothing to tick off
   const byTask = {};
   for(const [k,g] of Object.entries(GUIDE)){
     if(k==='other') continue;
     const ts = active.filter(t=>t.group===k); if(!ts.length) continue;
     for(const [task, ms] of Object.entries(g.rows)){
       if(['repot','autumn'].includes(task) || !ms.includes(NOW_M)) continue;
-      const ids = ts.map(t=>t.id), kinds = TASK_KINDS[task]||[task];
-      const done = monthLogs.some(l => l.trees.some(id=>ids.includes(id)) && l.actions.some(a=>kinds.includes(kindOf(a))));
-      (byTask[task] ||= []).push({name:g.name, done});
+      (byTask[task] ||= []).push({name:g.name, done:false});
     }
   }
-  // seasonal work only: feeding / potash are routines (TickTick), not seasonal jobs
-  const order = ['struct','wire','defol','clean','prune'];
+  // seasonal work only: feeding / potash are routines (TickTick), not seasonal jobs;
+  // wiring isn't listed: wired trees get their own wire-check reminders
+  const order = ['struct','defol','clean','prune'];
   const tasks = Object.entries(byTask).filter(([k])=>order.includes(k)).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
-  const nDone = tasks.filter(([,gs])=>gs.every(g=>g.done)).length;
-  const monthCard = `<div class="card home-card jobs"><div class="home-h"><b>Seasonal jobs</b><span>${tasks.length&&nDone?`${nDone}/${tasks.length} done`:''}</span></div>
-    ${tasks.length?`<ul class="todo">${tasks.map(([task,gs])=>`<li${gs.every(g=>g.done)?' class="done"':''}><b>${esc(TASKS[task].label)}${gs.every(g=>g.done)?' ✓':''}</b><span>${groupList(gs).replace(/ ✓$/,'')}</span></li>`).join('')}</ul>`:'<p class="muted" style="margin:4px 0 0">No seasonal work this month.</p>'}
+  const monthCard = `<div class="card home-card jobs"><div class="home-h"><b>Could do this month</b><span>if time permits</span></div>
+    ${tasks.length?`<ul class="todo">${tasks.map(([task,gs])=>`<li><b>${esc(TASKS[task].label)}</b><span>${groupList(gs)}</span></li>`).join('')}</ul>`:'<p class="muted" style="margin:4px 0 0">Nothing seasonal this month.</p>'}
     <button class="linkbtn" data-nav="season">${ico('season')}Calendar</button></div>`;
   // featured tree: a different tree each time the app is opened, shown with its most recent photo
   const withPh = active.filter(t=>t.photos.some(id=>PH[id]));
