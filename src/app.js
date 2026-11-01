@@ -35,8 +35,11 @@ ACT.fung.label='Mancozeb spray'; ACT.insect.label='Maverick spray';
 const KINDS = [['prune','Prune'],['hard','Hard prune'],['root','Root prune'],['repot','Repot'],['wire','Wire'],['wirechk','Wire checked'],['unwire','Wire removed'],['defol','Defoliate'],['style','Styling'],['fert','Feed'],['fung','Fungicide'],['insect','Insecticide'],['note','Other / observation']];
 const KIND_ICON = {prune:'scissors',hard:'cutter',root:'roots',repot:'pot',wire:'wire',wirechk:'wire',unwire:'wire',defol:'leaf',style:'brush',fert:'drop',fung:'shield',insect:'bug',note:'eye'};
 let JOBS = ['prune','hard','root','repot','wire','wirechk','unwire','defol','style','fert','fung','insect','note'].map(id=>({id, label:ACT[id].label, kind:id, hidden:false}));
+// Decandling (pines) counts as defoliating for the seasonal jobs, with its own button and icon
+const DECANDLE = {id:'decandle', label:'Decandled', kind:'defol', icon:'candle', hidden:false};
+JOBS.splice(JOBS.findIndex(j=>j.id==='defol')+1, 0, {...DECANDLE});
 let COMBOS = [{id:'cb1', label:'Repot + root prune', jobs:['repot','root']}, {id:'cb2', label:'Prune & wire', jobs:['prune','wire']}, {id:'cb3', label:'Full workover', jobs:['hard','root','repot']}];
-function applyJobs(){ JOBS.forEach(j=>{ ACT[j.id] = {label:j.label, icon:KIND_ICON[j.kind]||'eye', kind:j.kind}; }); }
+function applyJobs(){ JOBS.forEach(j=>{ ACT[j.id] = {label:j.label, icon:j.icon||KIND_ICON[j.kind]||'eye', kind:j.kind}; }); }
 let jobsTimer; function saveJobs(){ applyJobs(); clearTimeout(jobsTimer); jobsTimer=setTimeout(()=>saveMeta('settings',{jobs:JOBS, combos:COMBOS}),600); }
 applyJobs();
 const kindOf = a => (ACT[a] && ACT[a].kind) || a;
@@ -660,7 +663,7 @@ function renderSheet(){
       <div class="tree-picker">${act.map(t=>`<button class="pick" data-lgt="${t.id}" aria-pressed="${LG.trees.has(t.id)}">${thumb(t,'')}<span>${esc(t.name)}</span></button>`).join('')}</div></div>
     <div class="step"><div class="row" style="justify-content:space-between;margin-bottom:8px"><span class="eyebrow">2 · What did you do?</span><button class="btn ghost small" data-jobsed aria-expanded="${!!LG.editing}">${LG.editing?'Done editing':'Edit jobs'}</button></div>
       ${LG.editing ? jobsEditor() : `${COMBOS.length?`<div class="combos">${COMBOS.map(c=>`<button class="combo" data-combo="${c.id}">+ ${esc(c.label)}</button>`).join('')}</div>`:''}
-      <div class="actgrid">${JOBS.filter(j=>!j.hidden).map(j=>`<button class="actbtn" data-lga="${j.id}" aria-pressed="${LG.acts.has(j.id)}">${ico(KIND_ICON[j.kind]||'eye')}${esc(j.label)}</button>`).join('')}</div>`}</div>
+      <div class="actgrid">${JOBS.filter(j=>!j.hidden).map(j=>`<button class="actbtn" data-lga="${j.id}" aria-pressed="${LG.acts.has(j.id)}">${ico(j.icon||KIND_ICON[j.kind]||'eye')}${esc(j.label)}</button>`).join('')}</div>`}</div>
     <div class="step" style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       <label class="field"><span class="eyebrow">Date</span><input type="date" id="lgdate" value="${LG.date}"></label>
       <label class="field"><span class="eyebrow">Soil mix (if repotted)</span><select id="lgmix"><option value="">—</option>${MIXES.map(m=>`<option${LG.mix===m.name?' selected':''}>${esc(m.name)}</option>`).join('')}</select></label>
@@ -1035,6 +1038,7 @@ function sync(){
   if(!MIXES.length) MIXES = DEFAULT_MIXES;
   const st = state.meta.settings; if(st && st.jobs){ JOBS=st.jobs.slice(); COMBOS=st.combos||[];
     if(!JOBS.some(j=>j.kind==='wirechk')){ const i=JOBS.findIndex(j=>j.kind==='wire'); JOBS.splice(i<0?JOBS.length:i+1, 0, {id:'wirechk', label:'Wire checked', kind:'wirechk', hidden:false}); }
+    if(!JOBS.some(j=>j.id==='decandle')){ const i=JOBS.findIndex(j=>j.kind==='defol'); JOBS.splice(i<0?JOBS.length:i+1, 0, {...DECANDLE}); }
     applyJobs(); }
   S.ticks = {}; LOGS.forEach(l=>{ if(l.flags.includes('tick')) S.ticks[l.id]='tick'; });
 }

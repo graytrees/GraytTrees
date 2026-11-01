@@ -93,7 +93,7 @@ export function makeJobs({ trees, lastOf, today = new Date() }){
  *  ({trees, logs, meta}). Same rules as the Season screen. Returns {title, due, items[], notes[]}. */
 export function monthlyJobs(data, y, m){
   const settings = (data.meta||[]).find(x=>x.id==='settings');
-  const kindOf = a => (settings?.jobs||[]).find(j=>j.id===a)?.kind || a;   // a renamed "Repot" job still counts as a repot
+  const kindOf = a => (settings?.jobs||[]).find(j=>j.id===a)?.kind || ({decandle:'defol'})[a] || a;   // a renamed "Repot" job still counts as a repot
   const logs = (data.logs||[]).filter(l=>!l.deleted).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const lastOf = (id,kinds) => { const l = logs.find(l=>(l.trees||[]).includes(id) && !(l.flags||[]).includes('tick') && (l.actions||[]).some(a=>kinds.includes(kindOf(a)))); return l && {...l, _kinds:(l.actions||[]).map(kindOf)}; };
   const out = makeJobs({ trees:data.trees||[], lastOf, today:new Date(y,m-1,1) }).month(y,m);

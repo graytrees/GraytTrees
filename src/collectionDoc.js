@@ -45,7 +45,7 @@ export function snippet(text, max = 170) {
 /** Turns a backup ({trees, logs, meta}) into a list of blocks: {k:'h1'|'h2'|'p'|'li', text, bold?, italic?} */
 export function buildBlocks(data, { today = new Date(), backupDay } = {}) {
   const settings = (data.meta || []).find(x => x.id === 'settings');
-  const kindOf = a => (settings?.jobs || []).find(j => j.id === a)?.kind || a;
+  const kindOf = a => (settings?.jobs || []).find(j => j.id === a)?.kind || ({decandle:'defol'})[a] || a;
   const logs = (data.logs || []).filter(l => !l.deleted && !(l.flags || []).includes('tick'))
     .map(l => ({ ...l, kinds: (l.actions || []).map(kindOf) }))
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
