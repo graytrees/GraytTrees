@@ -31,6 +31,29 @@ Rolling back = re-publishing an earlier commit from GitHub's history.
 
 Changes that alter how records are stored: take a backup first (More → Settings & backups → Back up now).
 
+## Safety checks before a change goes live
+
+Every change is tested automatically before it is published (`npm test`). If a test fails, nothing is published.
+
+- Rule tests (`test/unit`): repot windows, wire-check dates, the monthly list, edit-history size limits, restore decisions.
+- Screen tests (`test/e2e`): the real app on a phone-sized screen against stand-ins for Google's services. They log work, add photos, save with no signal, edit, delete and restore entries, re-run the import, back up, and restore from a backup.
+
+## Restoring from a backup
+
+More › Settings & backups › Restore from a backup. Choose a backup from Drive (or a backup file).
+
+- **Add back what's missing**: only records that aren't in the app are added. Nothing already there changes.
+- **Put everything back**: every record in the backup replaces the app's version (type RESTORE to confirm). Records added since the backup stay. A copy of the current records is saved to Drive first as `graytrees-before-restore-…json`.
+- Backups don't hold the small copies of photos; they are rebuilt from the full-size photos in Drive.
+
+## Working without signal
+
+Saves are kept on the device at once and sent when the phone is back in range; the app never waits for the server. Photos taken offline wait on the device and upload after the next Drive reconnect. A save the server later refuses is shown and listed under Settings & backups › About this app.
+
+## Wire-check reminder on the day
+
+The app saves each wired tree's next check date in `graytrees-jobs-….json` (at each backup, and whenever wire is logged, checked or removed while Drive is signed in). A daily scheduled Claude task adds a TickTick reminder on the due day and removes it the next morning if it wasn't ticked.
+
 ## Code map (`src/`)
 
 - `main.js` – start-up, sign-in gate, update banner
@@ -45,6 +68,9 @@ Changes that alter how records are stored: take a backup first (More → Setting
 - `collectionDoc.js` / `jobs.js` – the rules for the collection Doc and for seasonal jobs
 - `importer.js` – one-time import of the merged old records (also used for top-up photo imports)
 - In the app: More › How it works shows this page as visual maps (where everything lives, making a change, getting things back)
+- `restore.js`, `restorePlan.js` – restore from a backup
+- `revisions.js` – edit-history rules and size caps
+- `problems.js` – on-device list of things that went wrong
 - `config.js` – Firebase project settings and owner email
 
 Testing without the real cloud: `npm run test:ui` runs the app against an in-memory stand-in (`test/mocks/`).

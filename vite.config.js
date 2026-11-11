@@ -4,8 +4,13 @@ import { VitePWA } from 'vite-plugin-pwa';
 // GitHub Pages serves the app at https://graytrees.github.io/GraytTrees/
 const base = process.env.BASE_PATH || '/GraytTrees/';
 
+// Shown under More › Settings & backups so it's clear which version a device is running.
+const built = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Brisbane', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+const build = built + (process.env.GITHUB_SHA ? ' · ' + process.env.GITHUB_SHA.slice(0, 7) : '');
+
 export default defineConfig({
   base,
+  define: { __BUILD__: JSON.stringify(build) },
   plugins: [VitePWA({
     registerType: 'prompt',
     includeAssets: ['icon-192-v2.png', 'icon-512-v2.png'],

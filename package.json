@@ -1,12 +1,15 @@
 {
   "name": "graytrees",
   "version": "1.0.0",
-  "description": "GraytTrees Bonsai – private bonsai collection app (PWA)",
+  "description": "GraytTrees Bonsai \u2013 private bonsai collection app (PWA)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:ui": "vite --config vite.mock.config.js"
+    "test:ui": "vite --config vite.mock.config.js",
+    "test": "npm run test:unit && npm run test:screens",
+    "test:unit": "node --test test/unit/*.test.mjs",
+    "test:screens": "playwright test"
   },
   "license": "UNLICENSED",
   "dependencies": {
@@ -14,6 +17,7 @@
     "jszip": "^3.10.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "vite": "^6.4.3",
     "vite-plugin-pwa": "^1.3.0"
   },

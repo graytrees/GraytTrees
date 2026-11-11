@@ -504,3 +504,7 @@ body:has(.drive-need) .toast{bottom:calc(196px + env(safe-area-inset-bottom,0px)
 .wirechk .due-main .t b{white-space:normal;overflow:visible}
 .wire-acts{display:flex;gap:8px;width:100%}
 .wire-acts .btn{flex:1 1 0;justify-content:center;min-width:0;padding-inline:8px}
+
+/* settings: problems noted on this device */
+.problems summary{cursor:pointer;font-weight:700}
+.problems ul{list-style:none;margin:10px 0;padding:0;display:grid;gap:8px;font-size:calc(14px*var(--fs));word-break:break-word}

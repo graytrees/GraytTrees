@@ -1,4 +1,5 @@
-# Every change pushed to main is built and published to GitHub Pages automatically.
+# Every change pushed to main is tested, then built and published to GitHub Pages automatically.
+# If any test fails, nothing is published and the live app stays as it was.
 name: Publish app
 on:
   push: { branches: [main] }
@@ -13,6 +14,12 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
+      - name: Rule tests (season dates, wire checks, edit history, restore)
+        run: npm run test:unit
+      - name: Install the test browser
+        run: npx playwright install --with-deps chromium
+      - name: Screen tests (logging, photos, offline, import, backup and restore)
+        run: npm run test:screens
       - run: npm run build
         env: { BASE_PATH: "/${{ github.event.repository.name }}/" }  # web address follows the project name
       - uses: actions/upload-pages-artifact@v3

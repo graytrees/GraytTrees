@@ -35,6 +35,7 @@ export async function getToken(interactive = false) {
   return new Promise((resolve, reject) => {
     client = google.accounts.oauth2.initTokenClient({
       client_id: googleClientId, scope: SCOPE, hint: ownerEmail,
+      include_granted_scopes: false,   // Drive only: don't carry permissions granted to other apps under the same Google sign-in
       prompt: interactive ? '' : 'none',
       callback: r => {
         if (r.error) return reject(new Error(r.error));
@@ -76,14 +77,21 @@ async function folder(name, parent) {
 }
 export async function folderPath(...parts) { let p = null; for (const n of [driveFolderName, ...parts]) p = await folder(n, p); return p; }
 
-export async function upload(blob, name, sub, interactive = false) {
+/** Uploads a file into GraytTrees/<sub>. With {replace:true} a file of the same name there is updated
+ *  in place instead of adding a second copy (Drive keeps the earlier version for 30 days). */
+export async function upload(blob, name, sub, interactive = false, { replace = false, signal } = {}) {
   await getToken(interactive);
   const parent = await folderPath(sub);
+  if (replace) {
+    const q = encodeURIComponent(`name='${name.replace(/'/g, "\\'")}' and '${parent}' in parents and trashed=false`);
+    const old = (await (await api(`/files?q=${q}&fields=files(id)`)).json()).files?.[0]?.id;
+    if (old) { await api(`https://www.googleapis.com/upload/drive/v3/files/${old}?uploadType=media&fields=id`, { method: 'PATCH', headers: { 'Content-Type': blob.type || 'application/octet-stream' }, body: blob }); return old; }
+  }
   const meta = { name, parents: [parent] };
   const form = new FormData();
   form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
   form.append('file', blob);
-  const r = await api('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', body: form });
+  const r = await api('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', body: form, signal });
   return (await r.json()).id;
 }
 
@@ -96,8 +104,12 @@ export async function fileUrl(id) {
   return url;
 }
 
+/** A file's contents straight from Drive (used to rebuild small copies of photos and to read a backup). */
+export const fileBlob = async id => (await api(`/files/${id}?alt=media`)).blob();
+export const fileText = async id => (await api(`/files/${id}?alt=media`)).text();
+
 export async function listBackups() {
   const parent = await folderPath('Backups');
   const q = encodeURIComponent(`'${parent}' in parents and trashed=false`);
-  return (await (await api(`/files?q=${q}&orderBy=createdTime desc&pageSize=20&fields=files(id,name,createdTime,size)`)).json()).files || [];
+  return (await (await api(`/files?q=${q}&orderBy=createdTime desc&pageSize=60&fields=files(id,name,createdTime,size)`)).json()).files || [];
 }

@@ -16,8 +16,18 @@ function apply(cur, data) {
 function notify(c) { subs.filter(s => s.c === c).forEach(s => s.cb(snap(c))); }
 function snap(c) { const docs = Object.entries(db).filter(([k]) => colOf(k.split('/')) === c).map(([k, v]) => ({ id: k.split('/').pop(), data: () => v })); return { docs, metadata: { hasPendingWrites: false, fromCache: false } }; }
 export function onSnapshot(ref, opts, cb) { if (typeof opts === 'function') cb = opts; const c = key(ref.p); subs.push({ c, cb }); setTimeout(() => cb(snap(c)), 0); return () => {}; }
-export async function setDoc(ref, data, o) { const k = key(ref.p); db[k] = o?.merge ? apply(db[k], data) : apply({}, data); notify(colOf(ref.p)); }
-export async function updateDoc(ref, data) { const k = key(ref.p); if (!db[k]) throw new Error('no doc ' + k); db[k] = apply(db[k], data); notify(colOf(ref.p)); }
-export const writeBatch = () => { const ops = []; return { set: (r, d) => ops.push([r, d]), commit: async () => { for (const [r, d] of ops) await setDoc(r, d); } }; };
+// window.__refuse = true (or a delay in ms) makes the server refuse saves.
+// window.__offline = true behaves like the real database with no signal: the change is kept and shown at once,
+// but the "done" promise stays pending until window.__goOnline(). window.__refuse makes the server refuse saves.
+const held = [];
+const done = () => window.__refuse ? new Promise((_, rej) => setTimeout(() => rej(new Error('refused by the server')), window.__refuse === true ? 50 : window.__refuse))
+  : window.__offline ? new Promise(r => held.push(r)) : Promise.resolve();
+window.__goOnline = () => { window.__offline = false; held.splice(0).forEach(r => r()); };
+function put(ref, data, o) { const k = key(ref.p); db[k] = o?.merge ? apply(db[k], data) : apply({}, data); notify(colOf(ref.p)); }
+export function setDoc(ref, data, o) { put(ref, data, o); return done(); }
+export function updateDoc(ref, data) { const k = key(ref.p); if (!db[k]) return Promise.reject(new Error('no doc ' + k)); db[k] = apply(db[k], data); notify(colOf(ref.p)); return done(); }
+export const writeBatch = () => { const ops = []; return { set: (r, d, o) => ops.push([r, d, o]), commit: () => { for (const [r, d, o] of ops) put(r, d, o); return done(); } }; };
 export async function getDocs(ref) { return snap(key(ref.p)); }
 window.__mockdb = db;
+// test helper: a record vanishes (as if lost or deleted outside the app)
+window.__remove = path => { delete db[path]; notify(path.split('/').slice(0, -1).join('/')); };

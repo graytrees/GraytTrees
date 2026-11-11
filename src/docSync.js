@@ -8,10 +8,10 @@
 // links it once with Google's file picker (More › Settings & backups › Link collection Doc); that
 // gives the app access to that one Doc and nothing else.
 import { firebaseConfig } from './config.js';
-import { getToken, googleApi, upload } from './drive.js';
+import { getToken, googleApi, upload, hasDriveToken, driveConnected } from './drive.js';
 import { saveMeta, state } from './store.js';
 import { buildBlocks, contentRequests, styleRequests, checkDoc } from './collectionDoc.js';
-import { monthlyJobs } from './jobs.js';
+import { monthlyJobs, wireCheckList } from './jobs.js';
 
 const DOCS = 'https://docs.googleapis.com/v1/documents/';
 const DOC_TITLE = 'GraytTrees – 2 My collection';
@@ -25,9 +25,25 @@ export async function saveJobsFile(data, day, interactive = false) {
     const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
     months[key] = monthlyJobs(data, d.getFullYear(), d.getMonth() + 1);
   }
-  const out = { made: day, from: `graytrees-backup-${day}.json`,
-    about: 'Bonsai jobs checklists worked out by GraytTrees (same rules as Season › Monthly look-ahead). Keys are YYYY-MM.', months };
-  await upload(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }), `graytrees-jobs-${day}.json`, 'Backups', interactive);
+  const wireChecks = wireCheckList(data);
+  const out = { made: day, from: `GraytTrees records as at ${day}`,
+    about: 'Bonsai jobs checklists worked out by GraytTrees (same rules as Season › Monthly look-ahead). Keys are YYYY-MM. wireChecks lists every tree with wire on and the day its next check is due.', months, wireChecks };
+  await upload(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }), `graytrees-jobs-${day}.json`, 'Backups', interactive, { replace: true });
+  return wireSig(wireChecks);
+}
+const wireSig = list => list.map(w => w.tree + '@' + w.due).join('|');
+
+/** Keeps the wire-check dates in Drive current between weekly backups: when wire is logged, checked or removed,
+ *  the jobs file is saved again (quietly, and only if Drive is already signed in). */
+export async function refreshJobsFileIfWireChanged() {
+  if (!navigator.onLine || !driveConnected() || !hasDriveToken() || !state.ready.trees || !state.ready.logs || !state.ready.meta) return false;
+  const data = { trees: state.trees, logs: state.logs, meta: Object.values(state.meta) };
+  const sig = wireSig(wireCheckList(data));
+  if (sig === (state.meta.jobsFile?.wireSig ?? '')) return false;
+  const day = todayDay();
+  await saveJobsFile(data, day, false);
+  await saveMeta('jobsFile', { lastDay: day, wireSig: sig, error: '' });
+  return true;
 }
 
 /* ---------- the collection Doc ---------- */

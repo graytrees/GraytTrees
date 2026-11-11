@@ -1,7 +1,8 @@
 // One-time import of the merged records (Bonsai Album + Care App + 2003–2010 sheet).
-// Safe to run again: everything has a fixed id, so a second run just tops up what's missing.
+// Safe to run again: everything has a fixed id, and a record that is already in the app is left exactly as it
+// is (so edits made since the first import are never overwritten); a second run only adds what's missing.
 import JSZip from 'jszip';
-import { bulkWrite, savePhoto, state } from './store.js';
+import { bulkWrite, savePhoto, state, has } from './store.js';
 import { upload } from './drive.js';
 import { makeThumb } from './photos.js';
 
@@ -14,12 +15,12 @@ export async function runImport(jsonFile, zipFiles, progress) {
   const newTools = (data.tools || []).filter(t => !state.tools.some(x => x.id === t.id)); // never overwrite tools you've since edited
   if (newTools.length) { say('Saving your tools…'); await bulkWrite('tools', newTools); }
   say('Saving trees, pots and mixes…');
-  await bulkWrite('trees', data.trees || []);
-  await bulkWrite('pots', data.pots || []);
-  await bulkWrite('mixes', data.mixes || []);
-  if (data.meta) await bulkWrite('meta', data.meta);
+  const fresh = name => (data[name] || []).filter(r => !has(name, r.id));   // never overwrite what's already here
+  const added = {};
+  for (const name of ['trees', 'pots', 'mixes', 'meta']) { const list = fresh(name); added[name] = list.length; if (list.length) await bulkWrite(name, list); }
   say('Saving history…');
-  await bulkWrite('logs', data.logs || [], (a, b) => say('Saving history…', a, b));
+  const newLogs = fresh('logs'); added.logs = newLogs.length;
+  if (newLogs.length) await bulkWrite('logs', newLogs, (a, b) => say('Saving history…', a, b));
 
   // Photos from the zip → thumbnail with the records + full size to Drive
   const zips = [];
@@ -44,5 +45,5 @@ export async function runImport(jsonFile, zipFiles, progress) {
     } catch (e) { failed++; console.warn('photo', p.id, e); }
     say('Photos', done, list.length);
   }
-  return { tools: newTools.length, books: (data.books || []).length, trees: (data.trees || []).length, logs: (data.logs || []).length, photos: list.length - failed, failed };
+  return { tools: newTools.length, books: newBooks.length, trees: added.trees, logs: added.logs, photos: list.length - failed, failed };
 }

@@ -7,8 +7,24 @@ import {
   collection, doc, onSnapshot, writeBatch, setDoc, updateDoc, arrayUnion, serverTimestamp, getDocs,
 } from 'firebase/firestore';
 import { db } from './firebase.js';
+import { nextRevisions } from './revisions.js';
 
-export const COLS = ['trees', 'logs', 'photos', 'pots', 'mixes', 'books', 'tools', 'meta'];
+/* Saving without signal. Every save is kept on the device straight away and sent when the phone is back in
+ * range, but the database's "done" signal only arrives once the server has it. Waiting for that signal would
+ * freeze the app in the garden, so saves wait only briefly (to catch a refusal while online) and then carry on.
+ * A save the server later refuses is reported through onSaveError. */
+let saveError = () => {};
+export const onSaveError = fn => { saveError = fn; };
+const WAIT_MS = 1500;
+function send(p, what) {
+  let late = !navigator.onLine;
+  const guarded = p.catch(err => { if (late) saveError(err, what); else throw err; });
+  if (late) return Promise.resolve();
+  return Promise.race([guarded, new Promise(r => setTimeout(() => { late = true; r(); }, WAIT_MS))]);
+}
+
+import { COLS } from './cols.js';
+export { COLS };
 export const state = { trees: [], logs: [], photos: {}, pots: [], mixes: [], books: [], tools: [], meta: {}, ready: {}, pending: false };
 
 let uid = null;
@@ -50,54 +66,50 @@ export async function addLogs(entries) {
     const id = e.id || newId('L');
     b.set(ref('logs', id), { ...e, id, createdMs: Date.now(), createdAt: serverTimestamp(), ...stamp() });
   }
-  await b.commit();
+  await send(b.commit(), 'history entry');
 }
 export async function editLog(id, changes) {
   const cur = state.logs.find(l => l.id === id);
   const prev = cur ? { date: cur.date, actions: cur.actions, text: cur.text, trees: cur.trees, photos: cur.photos || [], at: Date.now() } : null;
-  await updateDoc(ref('logs', id), { ...changes, ...(prev ? { revisions: arrayUnion(prev) } : {}), ...stamp() });
+  await send(updateDoc(ref('logs', id), { ...changes, ...(prev ? { revisions: arrayUnion(prev) } : {}), ...stamp() }), 'history entry');
 }
-export const deleteLog = id => updateDoc(ref('logs', id), { deleted: true, deletedMs: Date.now(), ...stamp() });
-export const restoreLog = id => updateDoc(ref('logs', id), { deleted: false, ...stamp() });
-export const setLogFlags = (id, flags) => updateDoc(ref('logs', id), { flags, ...stamp() });
+export const deleteLog = id => send(updateDoc(ref('logs', id), { deleted: true, deletedMs: Date.now(), ...stamp() }), 'history entry');
+export const restoreLog = id => send(updateDoc(ref('logs', id), { deleted: false, ...stamp() }), 'history entry');
+export const setLogFlags = (id, flags) => send(updateDoc(ref('logs', id), { flags, ...stamp() }), 'history entry');
 
 /* ---------- trees, pots, mixes ---------- */
-// Long typed text (a book's contents/index) is not copied into the edit history: it would
-// otherwise be repeated on every save and could push one record past Firestore's 1 MB limit.
-const NO_HISTORY = ['contents', 'index'];
-const MAX_REVS = 30, MAX_REV_BYTES = 300000;
-const slim = r => { const x = { ...r }; for (const k of NO_HISTORY) if (k in x) { x[k] = x[k] ? '(long text not kept in history)' : x[k]; } return x; };
+// Edit history rules (what is kept, and how it is capped) are in revisions.js.
 export async function saveRecord(name, rec) {
   const id = rec.id || newId(name[0]);
   const cur = (state[name] || []).find(x => x.id === id);
   const { revisions, ...plain } = cur || {};
   const data = { ...rec, id, ...stamp() };
   if (cur) {
-    const snap = slim({ ...plain, updatedAt: null, at: Date.now() });
-    const old = revisions || [];
-    // Keep history small: once it's long, keep the most recent versions (slimmed) and drop the oldest.
-    if (old.length >= MAX_REVS || JSON.stringify(old).length > MAX_REV_BYTES) data.revisions = [...old.slice(-(MAX_REVS - 1)).map(slim), snap];
-    else data.revisions = arrayUnion(snap);
+    const next = nextRevisions(revisions || [], { ...plain, updatedAt: null, at: Date.now() });
+    data.revisions = next.replace || arrayUnion(next.append);
   }
-  await setDoc(ref(name, id), data, { merge: true });
+  await send(setDoc(ref(name, id), data, { merge: true }), name.replace(/s$/, ''));
   return id;
 }
 
 /* ---------- photos ---------- */
-export const savePhoto = p => setDoc(ref('photos', p.id), { ...p, ...stamp() }, { merge: true });
+export const savePhoto = p => send(setDoc(ref('photos', p.id), { ...p, ...stamp() }, { merge: true }), 'photo');
 
 /* ---------- settings ---------- */
-export const saveMeta = (id, data) => setDoc(ref('meta', id), { ...data, ...stamp() }, { merge: true });
+export const saveMeta = (id, data) => send(setDoc(ref('meta', id), { ...data, ...stamp() }, { merge: true }), 'setting');
 
 /* ---------- bulk import (first-time load) ---------- */
-export async function bulkWrite(name, records, onProgress) {
+export async function bulkWrite(name, records, onProgress, { merge = false, mark = 'importedMs' } = {}) {
   for (let i = 0; i < records.length; i += 400) {
     const b = writeBatch(db);
-    for (const r of records.slice(i, i + 400)) b.set(ref(name, r.id), { ...r, importedMs: Date.now() });
+    for (const r of records.slice(i, i + 400)) b.set(ref(name, r.id), { ...r, [mark]: Date.now() }, ...(merge ? [{ merge: true }] : []));
     await b.commit();
     onProgress?.(Math.min(i + 400, records.length), records.length);
   }
 }
+
+/** True if a record with this id is already in the app (used so imports and restores never overwrite by accident). */
+export const has = (name, id) => name === 'photos' || name === 'meta' ? !!state[name][id] : state[name].some(x => x.id === id);
 
 /* ---------- full export (backups) ---------- */
 export async function exportAll() {
@@ -115,4 +127,4 @@ export async function exportAll() {
 }
 
 /* tree photo order (newest first); no revision kept for reordering */
-export const setTreePhotos = (id, photos) => updateDoc(ref('trees', id), { photos: [...new Set(photos)], ...stamp() });
+export const setTreePhotos = (id, photos) => send(updateDoc(ref('trees', id), { photos: [...new Set(photos)], ...stamp() }), 'tree photos');

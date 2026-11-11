@@ -1,0 +1,126 @@
+{
+ "trees": [
+  {
+   "id": "t-pine",
+   "name": "Test Black Pine",
+   "common": "Japanese Black Pine",
+   "scientific": "Pinus thunbergii",
+   "group": "pine",
+   "status": "active",
+   "photos": []
+  },
+  {
+   "id": "t-fig",
+   "name": "Test Fig",
+   "common": "Port Jackson Fig",
+   "scientific": "Ficus rubiginosa",
+   "group": "fig",
+   "status": "active",
+   "photos": []
+  },
+  {
+   "id": "t-elm",
+   "name": "Test Elm",
+   "common": "Chinese Elm",
+   "scientific": "Ulmus parvifolia",
+   "group": "elm",
+   "status": "active",
+   "photos": []
+  },
+  {
+   "id": "t-jun",
+   "name": "Test Juniper",
+   "common": "Chinese Juniper",
+   "scientific": "Juniperus chinensis",
+   "group": "juniper",
+   "status": "active",
+   "photos": []
+  },
+  {
+   "id": "t-past",
+   "name": "Test Maple (gone)",
+   "common": "Japanese Maple",
+   "group": "other",
+   "status": "past",
+   "photos": []
+  }
+ ],
+ "logs": [
+  {
+   "id": "l1",
+   "trees": [
+    "t-pine"
+   ],
+   "date": "2025-07-20",
+   "precision": "day",
+   "actions": [
+    "repot",
+    "root"
+   ],
+   "text": "Repot, Root prune\nTest entry",
+   "sources": [
+    "Test"
+   ],
+   "flags": []
+  },
+  {
+   "id": "l2",
+   "trees": [
+    "t-fig"
+   ],
+   "date": "2025-11-02",
+   "precision": "day",
+   "actions": [
+    "repot"
+   ],
+   "text": "Repot",
+   "sources": [
+    "Test"
+   ],
+   "flags": []
+  },
+  {
+   "id": "l3",
+   "trees": [
+    "t-elm"
+   ],
+   "date": "2026-03-14",
+   "precision": "day",
+   "actions": [
+    "prune"
+   ],
+   "text": "Light prune",
+   "sources": [
+    "Test"
+   ],
+   "flags": []
+  }
+ ],
+ "pots": [
+  {
+   "id": "pot1",
+   "name": "Test oval pot",
+   "photos": []
+  }
+ ],
+ "mixes": [
+  {
+   "id": "m1",
+   "name": "Test mix",
+   "parts": {
+    "akadama": 2,
+    "pumice": 1
+   },
+   "used": []
+  }
+ ],
+ "photos": [],
+ "meta": [
+  {
+   "id": "importNotes",
+   "done": [
+    "Test note"
+   ]
+  }
+ ]
+}

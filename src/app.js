@@ -1,9 +1,12 @@
 
-import { state, onChange, addLogs, editLog, deleteLog, restoreLog, setLogFlags, saveRecord, saveMeta, newId, setTreePhotos, savePhoto } from './store.js';
+import { state, onChange, onSaveError, addLogs, editLog, deleteLog, restoreLog, setLogFlags, saveRecord, saveMeta, newId, setTreePhotos, savePhoto } from './store.js';
 import { addPhotos, flushPending, pendingCount, localFull } from './photos.js';
-import { fileUrl, getToken, driveConnected, listBackups, hasDriveToken, preloadGis } from './drive.js';
-import { backupNow, maybeWeeklyBackup, backupDue, lastDocResult } from './backup.js';
-import { linkCollectionDoc, testDocAccess } from './docSync.js';
+import { fileUrl, fileText, getToken, driveConnected, listBackups, hasDriveToken, preloadGis } from './drive.js';
+import { backupNow, maybeWeeklyBackup, backupDue, lastDocResult, snapshotBeforeRestore } from './backup.js';
+import { linkCollectionDoc, testDocAccess, refreshJobsFileIfWireChanged } from './docSync.js';
+import { readBackup, planRestore, planCount, restoreBackup, thumbless, rebuildThumbs } from './restore.js';
+import { has } from './store.js';
+import { problems, logProblem, clearProblems, onProblem } from './problems.js';
 import { runImport } from './importer.js';
 import { signOut, auth } from './firebase.js';
 import { TIPS, NOTES, COLLECTION } from './knowledge.js';
@@ -100,7 +103,23 @@ try{ S.layout = localStorage.getItem('gt-layout') || 'cards'; }catch(e){}
 function textSize(){ try{ return localStorage.getItem('gt-fs') || '1.12'; }catch(e){ return '1.12'; } }
 export function setTextSize(v){ try{ if(v) localStorage.setItem('gt-fs', v); }catch(e){} document.documentElement.style.setProperty('--fs', v || textSize()); }
 setTextSize();
-function go(view, opts={}){ Object.assign(S, {view}, opts); sync(); render(); window.scrollTo({top:0}); }
+/* Screens are recorded in the browser's history so the phone's Back gesture goes back a screen (and closes
+   an open pop-up first) instead of leaving the app. */
+const NAV_KEYS = ['view','tree','tab','book','toolId'];
+const navState = () => Object.fromEntries(NAV_KEYS.map(k=>[k, S[k] ?? null]));
+function go(view, opts={}){
+  const before = JSON.stringify(navState());
+  Object.assign(S, {view}, opts); sync(); render(); window.scrollTo({top:0});
+  try{ const now = navState(); if(JSON.stringify(now)!==before) history.pushState(now, ''); }catch(e){}
+}
+function overlayOpen(){ return !!(document.querySelector('.lightbox') || $('#layer')?.firstChild); }
+function closeOverlays(){ stopScan(); document.querySelector('.lightbox')?.remove(); const l=$('#layer'); if(l) l.innerHTML=''; FORM=null; }
+window.addEventListener('popstate', e=>{
+  if(overlayOpen()){ closeOverlays(); try{ history.pushState(navState(), ''); }catch(err){} return; }   // Back closes the pop-up and stays on the screen
+  const st = e.state || {view:'trees'};
+  Object.assign(S, Object.fromEntries(NAV_KEYS.filter(k=>k in st).map(k=>[k, st[k]])));
+  S.q=''; sync(); render();
+});
 
 /* --- search header --- */
 function header(placeholder='Search trees, species, history…'){
@@ -627,12 +646,15 @@ function viewSettings(){
       ${cd.error&&(cd.errorMs||0)>(cd.lastMs||0)?`<p class="err" style="margin:0 0 10px">Last refresh failed: ${esc(cd.error)}</p>`:''}
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" data-backup>${ico('archive')}Back up &amp; refresh now</button><button class="btn ghost small" data-doclink>Link a different Doc</button><button class="btn ghost small" data-doctest>Test access</button></div>`
       :`<p style="margin:0 0 10px">Not linked yet. The app can only open files it made, so choose the Doc once to let it in (that Doc only).</p><button class="btn small" data-doclink>${ico('check')}Link collection Doc</button>`}</div>`; })()}
-    <div class="card" style="padding:16px"><b>Import records</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">Load the merged records file and photo bundle. Safe to run again; nothing is duplicated.</p><button class="btn ghost small" data-nav="import">${ico('archive')}Open import</button></div>
+    <div class="card" style="padding:16px"><b>Restore from a backup</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">Put records back from one of your weekly backups, for example after something was changed or removed by mistake.</p><button class="btn ghost small" data-nav="restore">${ico('history')}Open restore</button></div>
+    <div class="card" style="padding:16px"><b>Import records</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">Load a records file Claude has prepared. It only adds what isn't in the app yet; anything already here, including your edits, is left as it is.</p><button class="btn ghost small" data-nav="import">${ico('archive')}Open import</button></div>
+    ${(()=>{ const pr=problems(); return `<div class="card" style="padding:16px"><b>About this app</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">Version built <span class="num" id="buildLabel">${esc(__BUILD__)}</span></p>
+      ${pr.length?`<details class="problems"><summary>${pr.length} problem${pr.length>1?'s':''} noted on this device</summary><ul>${pr.map(p=>`<li><span class="muted num">${new Date(p.at).toLocaleString('en-AU',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})}${p.n>1?` ×${p.n}`:''}</span> <b>${esc(p.what)}</b>: ${esc(p.msg)}</li>`).join('')}</ul><button class="btn ghost small" data-clearproblems>Clear list</button></details>`:'<p class="muted" style="margin:0;font-size:calc(15px*var(--fs))">No problems noted on this device.</p>'}</div>`; })()}
     <div class="card" style="padding:16px"><b>Signed in</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">${esc(auth.currentUser?.email||'')}</p><button class="btn ghost small" data-signout>Sign out</button></div>
   </div>`;
 }
 function viewImport(){
-  return header() + `<div class="section-h"><div><span class="eyebrow">One-time setup</span><h2>Import my records</h2></div></div>
+  return header() + `<div class="section-h"><div><span class="eyebrow">Adds what's missing, never overwrites</span><h2>Import my records</h2></div></div>
   <div class="card" style="padding:16px;display:grid;gap:14px">
     <p style="margin:0">Choose the two files Claude sent you: <b>graytrees-import.json</b> (records) and the photo files <b>graytrees-photos-1.zip</b> and <b>graytrees-photos-2.zip</b> (select both together). Photos are uploaded to your Google Drive, so do this on Wi-Fi; it takes a few minutes.</p>
     <p style="margin:0" class="muted">Library: choose <b>graytrees-library.json</b> as the records file and leave the photos empty. Books already in your library are left as they are.</p>
@@ -643,6 +665,52 @@ function viewImport(){
     <p id="impStatus" class="muted num" style="margin:0" role="status">${esc(S.importResult||'')}</p>
   </div>`;
 }
+/* --- restore from a backup --- */
+const RS = {list:null, listErr:'', pick:'', mode:'missing', data:null, name:'', status:'', busy:false, err:''};
+function restoreSummary(){
+  if(!RS.data) return '';
+  const d=RS.data, plan=planRestore(d, RS.mode, has), n=planCount(plan);
+  const parts = [['trees','tree'],['logs','history entr','ies','y'],['photos','photo'],['pots','pot'],['mixes','mix','es'],['books','book'],['tools','tool'],['meta','setting']]
+    .filter(([k])=>plan[k].length).map(([k,w,pl='s',sg=''])=>`${plan[k].length} ${w}${plan[k].length===1?sg:pl}`);
+  return `<p style="margin:0"><b>${esc(RS.name)}</b> holds ${d.trees.length} tree${d.trees.length===1?'':'s'}, ${d.logs.length} history entr${d.logs.length===1?'y':'ies'} and ${(d.photos||[]).length} photo${(d.photos||[]).length===1?'':'s'}${d.exported?`, saved ${fmtD(String(d.exported).slice(0,10))}`:''}.</p>
+    <p style="margin:0" id="rsPlan">${n ? (RS.mode==='replace' ? `This will put back <b>${parts.join(', ')}</b> exactly as they were in this backup.` : `Missing from the app and ready to add back: <b>${parts.join(', ')}</b>.`) : 'Nothing is missing: every record in this backup is already in the app.'}</p>`;
+}
+function viewRestore(){
+  return header() + `<div class="section-h"><div><span class="eyebrow">From your weekly backups</span><h2>Restore from a backup</h2></div></div>
+  <div class="card" style="padding:16px;display:grid;gap:14px">
+    <div><span class="eyebrow" style="display:block;margin-bottom:6px">1 · Choose a backup</span>
+      ${RS.list ? (RS.list.length ? `<label class="field"><select id="rsPick" aria-label="Backup in Drive"><option value="">Choose a backup from Drive…</option>${RS.list.map(f=>`<option value="${esc(f.id)}" ${RS.pick===f.id?'selected':''}>${esc(f.name.replace(/^graytrees-|\.json$/g,''))}${f.size>100000?` (${(f.size/1048576).toFixed(1)} MB)`:''}</option>`).join('')}</select></label>` : '<p class="muted" style="margin:0">No backups found in Drive › GraytTrees › Backups.</p>')
+        : `<button class="btn small" data-rslist>${ico('archive')}Show my Drive backups</button>`}
+      ${RS.listErr?`<p class="err" style="margin:8px 0 0">${esc(RS.listErr)}</p>`:''}
+      <label class="field" style="margin-top:10px"><span class="muted" style="font-size:calc(14px*var(--fs))">or a backup file saved on this device (.json)</span><input type="file" id="rsFile" accept=".json,application/json"></label></div>
+    ${RS.data?`<div style="display:grid;gap:10px"><span class="eyebrow">2 · What to restore</span>
+      <div class="seg" role="group" aria-label="What to restore"><button data-rsmode="missing" aria-pressed="${RS.mode==='missing'}">Add back what's missing</button><button data-rsmode="replace" aria-pressed="${RS.mode==='replace'}">Put everything back</button></div>
+      ${restoreSummary()}
+      ${RS.mode==='replace'?`<p class="err" style="margin:0">Every record in the backup replaces the version in the app, so changes made since that backup to those records are undone. Records added since the backup are kept. A copy of how things are now is saved to Drive first.</p>
+        <label class="field"><span class="muted" style="font-size:calc(14px*var(--fs))">Type RESTORE to confirm</span><input class="input" id="rsConfirm" autocomplete="off" autocapitalize="characters"></label>`
+        :`<p class="muted" style="margin:0">Nothing already in the app is changed.</p>`}
+      <button class="btn" data-rsrun ${RS.busy?'disabled':''}>${ico('history')}${RS.mode==='replace'?'Put everything back':'Add back what\'s missing'}</button></div>`:''}
+    <p id="rsStatus" class="${RS.err?'err':'muted'} num" style="margin:0" role="status">${esc(RS.err||RS.status)}</p>
+    ${thumbless().length && !RS.busy?`<p style="margin:0">${thumbless().length} photo${thumbless().length>1?'s have':' has'} no small copy in the app. <button class="btn ghost small" data-rsthumbs>Rebuild from Drive</button></p>`:''}
+  </div>`;
+}
+async function loadRestore(text, name){
+  try{ RS.data=readBackup(text); RS.name=name; RS.err=''; RS.status=''; RS.mode='missing'; }
+  catch(err){ RS.data=null; RS.err=err.message; }
+  render();
+}
+async function runRestore(){
+  const say=(msg,a,b)=>{ RS.status = msg + (b?` ${a} of ${b}`:''); const el=$('#rsStatus'); if(el){ el.textContent=RS.status; el.className='muted num'; } };
+  RS.busy=true; RS.err=''; S.importing=true; render();
+  try{
+    if(!hasDriveToken()) await getToken(true);
+    if(RS.mode==='replace'){ say('Saving a copy of how things are now…'); const nm=await snapshotBeforeRestore(); say('Saved '+nm); }
+    const r = await restoreBackup(RS.data, RS.mode, say);
+    RS.status = r.total ? `Done: ${r.total} record${r.total===1?'':'s'} restored${r.thumbs.done?`, ${r.thumbs.done} photo small cop${r.thumbs.done===1?'y':'ies'} rebuilt`:''}${r.thumbs.failed?` (${r.thumbs.failed} photos couldn't be fetched from Drive – use Rebuild from Drive to retry)`:''}.` : 'Nothing needed restoring.';
+  }catch(err){ RS.err='Restore stopped: '+(err.message||err)+'. Nothing is lost; you can run it again.'; logProblem('Restore', err); }
+  RS.busy=false; S.importing=false; sync(); render();
+}
+
 /* --- quick log sheet --- */
 const LG = {trees:new Set(), acts:new Set(), date:'', note:'', mix:'', fileObjs:[], err:''};
 function openLog(treeId, kinds){
@@ -703,7 +771,7 @@ async function saveLog(){
   S.newLog = entries[Math.max(0,ids.indexOf(S.tree))].id;
   toast(`Logged for ${ids.length} tree${ids.length>1?'s':''}${navigator.onLine?'':' (saved on this device)'}`);
   if(ids.length===1){ go('tree',{tree:ids[0],tab:'history'}); } else { S.histAct='all'; go('history'); }
-  p.catch(err=>toast('Could not save: '+err.message));
+  p.catch(err=>{ logProblem('Saving a history entry', err); toast('Could not save: '+err.message); });
 }
 function keepScroll(fn){ const sh=$('.sheet'), ss=sh?sh.scrollTop:0; fn(); const n=$('.sheet'); if(n) n.scrollTop=ss; }
 function toast(msg){ const el=document.createElement('div'); el.className='toast'; el.setAttribute('role','status'); el.textContent=msg; document.body.appendChild(el); setTimeout(()=>el.remove(),2800); }
@@ -1010,12 +1078,12 @@ async function scanPhoto(file){
 }
 
 /* --- render + events --- */
-const VIEWS = {trees:()=>viewTrees(false), past:()=>viewTrees(true), tree:viewTree, season:viewSeason, history:viewHistory, mixes:viewMixes, pots:viewPots, tools:viewTools, tool:viewTool, review:viewReview, more:viewMore, recycle:viewRecycle, settings:viewSettings, import:viewImport, how:viewHow, library:viewLibrary, book:viewBook};
+const VIEWS = {trees:()=>viewTrees(false), past:()=>viewTrees(true), tree:viewTree, season:viewSeason, history:viewHistory, mixes:viewMixes, pots:viewPots, tools:viewTools, tool:viewTool, review:viewReview, more:viewMore, recycle:viewRecycle, settings:viewSettings, import:viewImport, restore:viewRestore, how:viewHow, library:viewLibrary, book:viewBook};
 export function render(){
   const v = VIEWS[S.view] || VIEWS.trees;
   $('#main').innerHTML = v();
   const navKey = S.view==='tree' ? (byId[S.tree]?.status==='past'?'past':'trees') : S.view;
-  document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.dataset.nav==='more' && ['pots','tools','tool','mixes','past','review','more','recycle','settings','import','how','library','book'].includes(navKey))) ? 'page':'false'); });
+  document.querySelectorAll('[data-nav]').forEach(b=>{ if(b.closest('.rail,.tabbar')) b.setAttribute('aria-current', (b.dataset.nav===navKey || (b.dataset.nav==='more' && ['pots','tools','tool','mixes','past','review','more','recycle','settings','import','restore','how','library','book'].includes(navKey))) ? 'page':'false'); });
   if(document.querySelector('.cmp-stage')) upgradeCmp();
   const fimg=document.querySelector('.feature img[data-full]'); if(fimg && hasDriveToken() && navigator.onLine) fileUrl(fimg.dataset.full).then(u=>{ S.featureFull={id:fimg.dataset.pid, url:u}; document.querySelectorAll('.feature img').forEach(im=>{ if(im.isConnected) im.src=u; }); }).catch(()=>{});
   if(S.driveNeed && navigator.onLine){ const n=S.driveNeed, b=document.createElement('div'); b.className='drive-need'; b.setAttribute('role','status');
@@ -1040,7 +1108,7 @@ function sync(){
   S.ticks = {}; LOGS.forEach(l=>{ if(l.flags.includes('tick')) S.ticks[l.id]='tick'; });
 }
 let raf=0;
-export function refresh(){ if(S.view==='import'&&S.importing) return; cancelAnimationFrame(raf); raf=requestAnimationFrame(()=>{ sync(); if(!document.querySelector('#layer .sheet')) render(); else if(S.view!=='tree'||byId[S.tree]) render(); }); }
+export function refresh(){ if(S.importing) return; cancelAnimationFrame(raf); raf=requestAnimationFrame(()=>{ sync(); if(!document.querySelector('#layer .sheet')) render(); else if(S.view!=='tree'||byId[S.tree]) render(); }); }
 
 let qTimer;
 document.addEventListener('input', e=>{
@@ -1062,6 +1130,8 @@ document.addEventListener('change', async e=>{
     const tid=e.target.dataset.addphoto, files=[...e.target.files]; toast(`Saving ${files.length} photo${files.length>1?'s':''}…`);
     try{ const ids = await addPhotos(files, {trees:[tid]}); await setTreePhotos(tid, [...ids, ...(byId[tid]?.photos||[])]); toast(`Added ${ids.length} photo${ids.length>1?'s':''}`); }catch(err){ toast('Could not add photo: '+err.message); } driveCatchUp();
   }
+  if(e.target.id==='rsPick'){ RS.pick=e.target.value; if(RS.pick){ const f=RS.list.find(x=>x.id===RS.pick); RS.status='Reading the backup…'; RS.err=''; render(); try{ await loadRestore(await fileText(RS.pick), f?.name||'Backup'); RS.status=''; }catch(err){ RS.data=null; RS.err='Could not read that backup: '+err.message; } render(); } else { RS.data=null; render(); } }
+  if(e.target.id==='rsFile' && e.target.files[0]){ const f=e.target.files[0]; RS.pick=''; await loadRestore(await f.text(), f.name); }
   if(e.target.id==='bksort'){ S.bksort=e.target.value; render(); }
   if(e.target.id==='bkphoto' && e.target.files[0]) scanPhoto(e.target.files[0]);
   if(e.target.id==='bktext' && e.target.files[0]){
@@ -1118,10 +1188,15 @@ async function loadFull(lb, p, interactive){
   }
 }
 document.addEventListener('click', async e=>{
-  const c = e.target.closest('[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-restorerec],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-doclink],[data-doctest],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-pgcover],[data-otd],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
+  const c = e.target.closest('[data-rslist],[data-rsmode],[data-rsrun],[data-rsthumbs],[data-clearproblems],[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-restorerec],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-doclink],[data-doctest],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-pgcover],[data-otd],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
   if(!c) return;
   const d = c.dataset;
   if(c.classList.contains('lightbox')){ if(e.target.closest('.lb-edit,.lb-full a')) return; c.remove(); return; }
+  if('rslist' in d){ c.disabled=true; c.textContent='Looking in Drive…'; try{ if(!hasDriveToken()) await getToken(true); RS.list=(await listBackups()).filter(f=>/^graytrees-(backup|before-restore)-.*\.json$/.test(f.name)); RS.listErr=''; }catch(err){ RS.listErr='Could not list your backups: '+err.message; } render(); return; }
+  if('rsmode' in d){ RS.mode=d.rsmode; RS.err=''; render(); return; }
+  if('rsrun' in d){ if(RS.mode==='replace' && ($('#rsConfirm')?.value||'').trim().toUpperCase()!=='RESTORE'){ RS.err='Type RESTORE in the box to confirm.'; render(); return; } runRestore(); return; }
+  if('rsthumbs' in d){ c.disabled=true; try{ if(!hasDriveToken()) await getToken(true); S.importing=true; const r=await rebuildThumbs(thumbless(), (m,a,b)=>{ const el=$('#rsStatus'); if(el) el.textContent=`${m} ${a} of ${b}`; }); RS.status=`${r.done} small cop${r.done===1?'y':'ies'} rebuilt${r.failed?`, ${r.failed} couldn't be fetched`:''}.`; }catch(err){ RS.err='Could not rebuild: '+err.message; } S.importing=false; sync(); render(); return; }
+  if('clearproblems' in d){ clearProblems(); render(); return; }
   if('phdate' in d){ const p=PH[d.phdate]; const v=p.date&&p.date.length===10?p.date:''; c.parentElement.outerHTML=`<p class="lb-edit"><label>Taken <input type="date" id="phd" value="${v}" max="${localDay()}"></label> <span class="muted">or year only</span> <input id="phy" type="number" inputmode="numeric" min="1980" max="${TODAY.getFullYear()}" placeholder="e.g. 2009" value="${p.date&&p.date.length===4?p.date:''}" style="width:6.5em"> <button class="btn small" data-phsave="${d.phdate}">Save</button></p>`; return; }
   if('pgcover' in d){ const b=BOOKS().find(x=>x.id===S.book); await saveRecord('books', {...b, coverPhoto:d.pgcover}); document.querySelector('.lightbox')?.remove(); toast('Cover set'); return; }
   if('pgdel' in d){ const b=BOOKS().find(x=>x.id===S.book); await saveRecord('books', {...b, photos:(b.photos||[]).filter(x=>x!==d.pgdel)}); document.querySelector('.lightbox')?.remove(); toast('Page removed'); return; }
@@ -1215,12 +1290,23 @@ async function driveCatchUp(){
   S.driveNeed=null;
   const n = await flushPending(); if(n) toast(`${n} photo${n>1?'s':''} uploaded`);
   const b = await maybeWeeklyBackup(); if(b) toast('Weekly backup saved to Drive');
+  if(!b) await refreshJobsFileIfWireChanged().catch(err=>logProblem('Wire-check dates', err));
   if(await pendingCount()) S.driveNeed = {photos: await pendingCount(), backup:false};
   render();
 }
 export function startApp(){
   sync(); render();
+  try{ history.replaceState(navState(), ''); }catch(e){}
   onChange(refresh);
+  // a save the server refuses after the app has moved on (rare) is shown and noted
+  onSaveError((err, what)=>{ logProblem('Saving a '+what, err); toast('A change could not be saved to the cloud: '+(err.message||err)); });
+  window.addEventListener('error', e=>{ if(e.message) logProblem('App error', e.message+(e.filename?` (${String(e.filename).split('/').pop()}:${e.lineno})`:'')); });
+  window.addEventListener('unhandledrejection', e=>{ const m=String(e.reason?.message||e.reason||''); if(m && !/Drive sign-in needed|offline/.test(m)) logProblem('App error', m); });
+  // ask the phone not to clear the app's stored data (photos waiting to upload live there) when it's short of space
+  navigator.storage?.persist?.().catch(()=>{});
+  // "today" is fixed when the app starts; if it has sat open past midnight, start afresh so due dates are right
+  const startDay = localDay();
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && localDay()!==startDay && !overlayOpen() && !S.importing) location.reload(); });
   preloadGis();   // so a Reconnect tap opens Google's window straight away (browsers only allow it right after a tap)
   window.addEventListener('online', ()=>{ refresh(); driveCatchUp(); });
   window.addEventListener('offline', refresh);

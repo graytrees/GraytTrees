@@ -89,13 +89,27 @@ export function makeJobs({ trees, lastOf, today = new Date() }){
   return { repotMonth, month, wireChecks };
 }
 
-/** The monthly "Bonsai jobs – <Month Year>" checklist for month y-m, worked out from a backup
- *  ({trees, logs, meta}). Same rules as the Season screen. Returns {title, due, items[], notes[]}. */
-export function monthlyJobs(data, y, m){
+const ymd = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+/** Every tree with wire on and when its next check is due, from {trees, logs, meta}. Used for the on-the-day
+ *  TickTick reminder. Returns [{tree, due:'YYYY-MM-DD', every, basis}], soonest first. */
+export function wireCheckList(data){
+  const { lastOf } = backupLookups(data);
+  return (data.trees||[]).filter(t=>!t.deleted && t.status!=='past').map(t=>({t, w:wireStatus(t, lastOf)})).filter(x=>x.w)
+    .sort((a,b)=>a.w.due-b.w.due)
+    .map(({t,w})=>({tree:t.name, due:ymd(w.due), every:w.fast?'8 weeks':'3 months', basis:`${w.checked?'last checked':'wired'} ${fmtShort(parseD(w.lastCheck))}`}));
+}
+function backupLookups(data){
   const settings = (data.meta||[]).find(x=>x.id==='settings');
   const kindOf = a => (settings?.jobs||[]).find(j=>j.id===a)?.kind || ({decandle:'defol'})[a] || a;   // a renamed "Repot" job still counts as a repot
   const logs = (data.logs||[]).filter(l=>!l.deleted).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const lastOf = (id,kinds) => { const l = logs.find(l=>(l.trees||[]).includes(id) && !(l.flags||[]).includes('tick') && (l.actions||[]).some(a=>kinds.includes(kindOf(a)))); return l && {...l, _kinds:(l.actions||[]).map(kindOf)}; };
+  return { lastOf };
+}
+
+/** The monthly "Bonsai jobs – <Month Year>" checklist for month y-m, worked out from a backup
+ *  ({trees, logs, meta}). Same rules as the Season screen. Returns {title, due, items[], notes[]}. */
+export function monthlyJobs(data, y, m){
+  const { lastOf } = backupLookups(data);
   const out = makeJobs({ trees:data.trees||[], lastOf, today:new Date(y,m-1,1) }).month(y,m);
   const last = new Date(y,m,0).getDate();
   return { title:out.title, due:`${y}-${String(m).padStart(2,'0')}-${String(last).padStart(2,'0')}`, items:out.items, notes:out.notes };

@@ -69,6 +69,13 @@ async function qDel(id) { const d = await idb(); return new Promise(r => { const
 export async function localFull(id) { try { const d = await idb(); const v = await new Promise(r => { const g = d.transaction('q').objectStore('q').get(id); g.onsuccess = () => r(g.result); g.onerror = () => r(null); }); return v?.blob ? URL.createObjectURL(v.blob) : null; } catch (e) { return null; } }
 export async function pendingCount() { try { return (await qAll()).length; } catch (e) { return 0; } }
 
+const UPLOAD_WAIT_MS = 40000;
+function withTimeout(run, ms) {
+  const ac = new AbortController();
+  let t; const timer = new Promise((_, rej) => { t = setTimeout(() => { ac.abort(); rej(new Error('Upload timed out; it will be sent later')); }, ms); });
+  return Promise.race([run(ac.signal), timer]).finally(() => clearTimeout(t));
+}
+
 /** Add photos taken or picked on the device. Returns the new photo ids. */
 export async function addPhotos(files, { trees = [], date, origin = 'Graytrees', interactive = true } = {}) {
   const ids = [];
@@ -79,7 +86,9 @@ export async function addPhotos(files, { trees = [], date, origin = 'Graytrees',
     const taken = date ? null : await photoDate(f);
     const rec = { id, thumb: th.dataUrl, w: th.w, h: th.h, ...(taken ? { taken: true } : {}), date: date || taken || (d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'))(new Date()), trees, origin, name: f.name || id + '.jpg' };
     let driveId = null;
-    try { if (navigator.onLine) driveId = await upload(full.blob, `${rec.date} ${id}.jpg`, 'Photos', false); } catch (e) { console.warn('upload later', e); }  // never pops up a sign-in window mid-save
+    // never pops up a sign-in window mid-save; and with a signal too weak to finish, give up after a while and
+    // let the photo wait on the device rather than hold up the save
+    try { if (navigator.onLine) driveId = await withTimeout(signal => upload(full.blob, `${rec.date} ${id}.jpg`, 'Photos', false, { signal }), UPLOAD_WAIT_MS); } catch (e) { console.warn('upload later', e); }
     if (!driveId) await qPut(id, { blob: full.blob, name: `${rec.date} ${id}.jpg` });
     await savePhoto({ ...rec, driveId, waiting: !driveId });
     ids.push(id);

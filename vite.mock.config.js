@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url';
 const r = p => fileURLToPath(new URL(p, import.meta.url));
 export default defineConfig({
   base: '/', server: { port: 5199 },
+  define: { __BUILD__: JSON.stringify('test build') },
   resolve: { alias: [
     { find: 'firebase/app', replacement: r('./test/mocks/app.js') },
     { find: 'firebase/auth', replacement: r('./test/mocks/auth.js') },
