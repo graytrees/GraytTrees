@@ -74,3 +74,17 @@ test('a date in the future, or no date, is caught before saving', async ({ page 
   await expect(sheet.locator('.err')).toContainText('Pick the date');
   expect((await db(page, 'logs')).length).toBe(before);                                      // nothing was saved
 });
+
+test('a new camellia picks up its care group, calendar and notes', async ({ page }) => {
+  const errs = errors(page); await start(page);
+  await page.locator('#main [data-edittree=""]').click();
+  await page.locator('#f_name').fill('Test Camellia'); await page.locator('#f_common').fill('Camellia');
+  await page.locator('[data-fsave]').click();
+  await page.locator('[data-tab="calendar"]').click();
+  const panel = page.locator('[role="tabpanel"]');
+  await expect(panel).toContainText('Timing for camellias'); await expect(panel).toContainText('Exotics');
+  await expect(panel).toContainText('Repot August to September');
+  await tabbar(page, 'season').click();
+  await expect(page.locator('#main')).toContainText('Camellias');
+  expect(errs).toEqual([]);
+});

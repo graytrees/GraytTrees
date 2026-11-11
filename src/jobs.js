@@ -14,11 +14,14 @@ export const GUIDE = {  /* timing from Nathan's monthly calendar, Red Dragon new
   bougie:{name:'Bougainvillea', every:2, rows:{repot:[10,11,12], autumn:[3,4], prune:[1,2,3], wire:[11,12,1,2], potash:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
   azalea:{name:'Azaleas', every:2, rows:{repot:[7,8], autumn:[3,4,5], prune:[11,12,1,2], wire:[12,1,2], potash:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
   african:{name:'Jaboticaba', every:2, rows:{repot:[10,11,12], autumn:[3,4], prune:[11,12,1,2,3], wire:[11,12,1,2], potash:[3,4,5,6,7,8], fert:[3,4,5,9,10,11]}},
+  /* Nov 2026: camellia from Nathan's 2006–2012 repots (Jul–Sep) plus Bonsai Empire and Swindon & District Bonsai; wisteria from Bonsai Empire and the Bonsai Society of Australia (no records of his own yet) */
+  camellia:{name:'Camellias', every:2, rows:{repot:[8,9], struct:[8,9], prune:[9,10,11], wire:[2,3,4], fert:[9,10,11,12,1,2,3,4]}},
+  wisteria:{name:'Wisteria', every:2, rows:{repot:[7,8], struct:[6,7], prune:[10,11,12,1,2,3,4], wire:[6,7], fert:[9,10,11,12,1,2,3]}},
   other:{name:'Other', every:2, rows:{}}
 };
 /* the three season calendars (Oct 2026): grouped by what wakes each tree up */
 export const CALS = [
-  {id:'exotic', name:'Exotics', blurb:'Northern-hemisphere trees. Repot mid-July to August: elms first, then junipers and pines.', species:['elm','juniper','pine','swamp','podo','azalea'], def:'pine'},
+  {id:'exotic', name:'Exotics', blurb:'Northern-hemisphere trees. Repot mid-July to August: elms first, then junipers and pines.', species:['elm','juniper','pine','swamp','podo','azalea','camellia','wisteria'], def:'pine'},
   {id:'native', name:'Natives', blurb:'Australian natives. Repot August to September, October at a stretch.', species:['mela']},
   {id:'tropical', name:'Ficus & tropicals', blurb:'Repot mid-October to December, once nights stay above about 15°C. Never January.', species:['fig','cler','bougie','african'], def:'fig'}
 ];

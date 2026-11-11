@@ -385,7 +385,7 @@ function calTable(rows, mine){
   return `<div class="cal">${leg}<table><thead><tr class="seas"><th></th>${MONTHS.map((m,i)=>{const s=SEASONS.find(s=>s[1].includes(i+1));return `<th style="${i+1===NOW_M?'color:var(--wire)':''}">${s[1][0]===i+1||i===0?s[0]:''}</th>`;}).join('')}</tr>
   <tr><th></th>${MONTHS.map((m,i)=>`<th class="${i+1===NOW_M?'now':''}">${m}</th>`).join('')}</tr></thead><tbody>${calRows(rows,mine)}</tbody></table></div>`;
 }
-const SHORT = {pine:'pines',elm:'elms',juniper:'junipers',fig:'figs',cler:'clerodendrums',swamp:'swamp cypress',podo:'Buddhist pine',mela:'melaleuca',bougie:'bougainvillea',azalea:'azaleas',african:'jaboticaba'};
+const SHORT = {pine:'pines',elm:'elms',juniper:'junipers',fig:'figs',cler:'clerodendrums',swamp:'swamp cypress',podo:'Buddhist pine',mela:'melaleuca',bougie:'bougainvillea',azalea:'azaleas',african:'jaboticaba',camellia:'camellias',wisteria:'wisteria'};
 function mergedRows(keys){
   const out=[];
   for(const task of ['repot','autumn',...Object.keys(TASKS).filter(x=>x!=='repot'&&x!=='autumn')]){
@@ -403,7 +403,7 @@ function tabCal(t){
   const rows = {...g.rows, ...(t.group==='azalea'?{repot:repotWin(t)}:{})};
   return `<p class="muted" style="margin-top:0;font-size:calc(15px*var(--fs))">Timing for ${esc(g.name.toLowerCase())} in Brisbane${c?', on your <b style="color:var(--ink)">'+esc(c.name)+'</b> calendar':''}${t.group==='azalea'?(t.azTiming==='after'?' (repotting after flowering)':' (repotting before flowering, flowers pinched off)'):''}. The orange dots show when you've actually repotted this tree.${t.autumn==='yes'?' <span class="pill unc">Flagged for autumn repot</span>':''}</p>
   ${Object.keys(rows).length?calTable(rows, mine):'<div class="empty">No guidance for this species yet.</div>'}
-  ${NOTES[t.group]?`<div class="card" style="padding:16px;margin-top:12px"><span class="eyebrow">Care notes</span><ul class="done-list" style="margin-top:8px">${NOTES[t.group].map(n=>`<li>${ico('leaf')}<span>${esc(n)}</span></li>`).join('')}</ul><p class="muted" style="font-size:calc(13px*var(--fs));margin:8px 0 0">From your monthly calendar and the Red Dragon newsletters</p></div>`:''}`;
+  ${NOTES[t.group]?`<div class="card" style="padding:16px;margin-top:12px"><span class="eyebrow">Care notes</span><ul class="done-list" style="margin-top:8px">${NOTES[t.group].map(n=>`<li>${ico('leaf')}<span>${esc(n)}</span></li>`).join('')}</ul><p class="muted" style="font-size:calc(13px*var(--fs));margin:8px 0 0">${['camellia','wisteria'].includes(t.group)?'From Bonsai Empire and club care guides (Nov 2026)'+(t.group==='camellia'?' and your 2006–2012 repots':''):'From your monthly calendar and the Red Dragon newsletters'}</p></div>`:''}`;
 }
 function tabRem(t){
   const g = GUIDE[t.group]||GUIDE.other, r = t.status==='past'?null:repotStatus(t);
@@ -811,12 +811,12 @@ function readForm(){
   const parts={}; document.querySelectorAll('[data-part]').forEach(i=>{ const n=parseFloat(i.value); if(n>0) parts[i.dataset.part]=n; }); if(FORM.fields.some(f=>f.type==='parts')) v.parts=parts;
   return v;
 }
-const GROUP_BY_COMMON = {'Japanese Black Pine':'pine','Chinese Elm':'elm','Chinese Juniper':'juniper','Japanese Garden Juniper':'juniper','Juniper':'juniper','Clerodendrum':'cler','Port Jackson Fig':'fig','Tiger Bark Fig':'fig','Fig':'fig','Swamp Cypress':'swamp','Buddhist Pine':'podo','Melaleuca':'mela','Bougainvillea':'bougie','Azalea':'azalea','Jaboticaba':'african','Brazilian Grapetree':'african'};
+const GROUP_BY_COMMON = {'Japanese Black Pine':'pine','Chinese Elm':'elm','Chinese Juniper':'juniper','Japanese Garden Juniper':'juniper','Juniper':'juniper','Clerodendrum':'cler','Port Jackson Fig':'fig','Tiger Bark Fig':'fig','Fig':'fig','Swamp Cypress':'swamp','Buddhist Pine':'podo','Melaleuca':'mela','Bougainvillea':'bougie','Azalea':'azalea','Jaboticaba':'african','Brazilian Grapetree':'african','Camellia':'camellia','Wisteria':'wisteria'};
 function editTree(id){
   const t = id ? byId[id] : {status:'active', photos:[], group:'other', aka:[]};
   openForm({ title: id?'Edit '+t.name:'Add a tree', value:{...t}, kind:'trees',
     fields:[{k:'name',label:'Name'},{k:'common',label:'Common name'},{k:'scientific',label:'Scientific name'},
-      {k:'group',label:'Care group (sets season timing)',type:'select',options:[['pine','Black pine'],['elm','Chinese elm'],['juniper','Juniper'],['fig','Fig'],['cler','Clerodendrum'],['swamp','Swamp cypress'],['podo','Buddhist pine'],['mela','Melaleuca'],['bougie','Bougainvillea'],['azalea','Azalea'],['african','Jaboticaba'],['other','Other']]},
+      {k:'group',label:'Care group (sets season timing)',type:'select',options:[['pine','Black pine'],['elm','Chinese elm'],['juniper','Juniper'],['fig','Fig'],['cler','Clerodendrum'],['swamp','Swamp cypress'],['podo','Buddhist pine'],['mela','Melaleuca'],['bougie','Bougainvillea'],['azalea','Azalea'],['african','Jaboticaba'],['camellia','Camellia'],['wisteria','Wisteria'],['other','Other']]},
       ...(t.group==='azalea'?[{k:'azTiming',label:'Azalea repot timing',type:'select',options:[['','Before flowering, Jul–Aug (pinch off flowers)'],['after','After flowering, Oct–Nov']]}]:[]),
       {k:'autumn',label:'Autumn repot flag',type:'select',options:[['','Not flagged'],['yes','Remind me in the autumn window (Mar–May)']]},
       {k:'style',label:'Style'},{k:'stage',label:'Development',type:'select',options:[['',''],['Early development','Early development'],['Mid development','Mid development'],['Refinement','Refinement']]},

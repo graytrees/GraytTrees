@@ -16,14 +16,14 @@ const SECTIONS = [
   { title: 'Black pines (Exotics)', groups: ['pine'] },
   { title: 'Junipers (Exotics)', groups: ['juniper'] },
   { title: 'Elms (Exotics)', groups: ['elm'] },
-  { title: 'Other exotics', groups: ['swamp', 'podo', 'azalea'] },
+  { title: 'Other exotics', groups: ['swamp', 'podo', 'azalea', 'camellia', 'wisteria'] },
   { title: 'Natives', groups: ['mela'] },
   { title: 'Ficus & tropicals', groups: ['fig', 'cler', 'bougie', 'african'],
     note: 'Repot window mid-October to December (changed Oct 2026 from the old August habit, which they recovered from slowly).' },
   { title: 'Other trees', groups: ['other'] },
 ];
 const PLURAL = { pine: ['black pine', 'black pines'], juniper: ['juniper', 'junipers'], elm: ['elm', 'elms'], cler: ['clerodendrum', 'clerodendrums'],
-  fig: ['fig', 'figs'], swamp: ['swamp cypress', 'swamp cypresses'], podo: ['Buddhist pine', 'Buddhist pines'], mela: ['melaleuca', 'melaleucas'],
+  fig: ['fig', 'figs'], swamp: ['swamp cypress', 'swamp cypresses'], podo: ['Buddhist pine', 'Buddhist pines'], camellia: ['camellia', 'camellias'], wisteria: ['wisteria', 'wisterias'], mela: ['melaleuca', 'melaleucas'],
   azalea: ['azalea', 'azaleas'], bougie: ['bougainvillea', 'bougainvilleas'], african: ['jaboticaba', 'jaboticabas'], other: ['other tree', 'other trees'] };
 const ROUTINE = ['fert', 'fung', 'insect', 'water', 'potash'];
 const GENERIC = /^(repotted|repot|pruned|prune|fertili[sz]ed|fertili[sz]e|wired|unwired|root pruned|repot and root prune|repotted and root pruned|pruned to shape|prune to shape|hard prune|hard pruned|sprayed|purchased|bought|note)\.?$/i;

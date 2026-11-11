@@ -59,3 +59,12 @@ test('repots: overdue only once a whole window has been missed, never while the 
   assert.equal(repotMissed(fig, '2025-08-09', new Date(2028, 1, 1)), true);
   assert.equal(repotMissed({ id: 'o', group: 'other' }, '2020-01-01', new Date(2026, 10, 11)), false, 'no window, no verdict');
 });
+
+test('camellia and wisteria: repots fall in their own windows on the Exotics calendar', async () => {
+  const { calOf, GUIDE } = await import('../../src/jobs.js');
+  assert.equal(calOf('camellia').id, 'exotic'); assert.equal(calOf('wisteria').id, 'exotic');
+  const ts = [{ id: 'c', name: 'Camellia', group: 'camellia' }, { id: 'w', name: 'Wisteria', group: 'wisteria' }];
+  const j = makeJobs({ trees: ts, lastOf: () => null, today: new Date(2026, 10, 11) });
+  assert.deepEqual(j.repotMonth(ts[0]), [2027, 8]); assert.deepEqual(j.repotMonth(ts[1]), [2027, 7]);
+  assert.ok(!GUIDE.camellia.rows.autumn, 'no autumn repot option for camellias (root rot risk)');
+});
