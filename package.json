@@ -1,7 +1,7 @@
 {
   "name": "graytrees",
   "version": "1.0.0",
-  "description": "GraytTrees Bonsai \u2013 private bonsai collection app (PWA)",
+  "description": "GraytTrees Bonsai – private bonsai collection app (PWA)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -13,13 +13,15 @@
   },
   "license": "UNLICENSED",
   "dependencies": {
-    "firebase": "^11.10.0",
+    "firebase": "^13.2.0",
     "jszip": "^3.10.2"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "vite": "^6.4.3",
-    "vite-plugin-pwa": "^1.3.0"
+    "vite": "^8.3.8",
+    "vite-plugin-pwa": "^2.0.0",
+    "workbox-build": "^7.4.1",
+    "workbox-window": "^7.4.1"
   },
   "private": true,
   "type": "module"
