@@ -24,6 +24,7 @@ export async function runImport(page) {
   await more(page, 'settings');
   await page.locator('#main [data-nav="import"]').click();
   await page.setInputFiles('#impJson', SAMPLE);
+  await page.evaluate(() => { document.querySelector('#impStatus').textContent = ''; });   // an earlier run's result must not be read as this one's
   await page.click('[data-runimport]');
   await expect(page.locator('#impStatus')).toContainText('Done', { timeout: 20000 });
   return page.locator('#impStatus').innerText();
