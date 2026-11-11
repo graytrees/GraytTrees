@@ -517,3 +517,13 @@ body:has(.drive-need) .toast{bottom:calc(196px + env(safe-area-inset-bottom,0px)
   .rail button{padding:5px 4px;gap:1px;font-size:calc(12px*var(--fs))}
   .rail button .ico{width:22px;height:22px}
 }
+/* book pages: status only (the pages live in Drive for Claude) */
+.pg-status{padding:12px 14px}
+.pg-ok,.pg-wait{display:flex;gap:10px;align-items:flex-start;padding:4px 0}
+.pg-ok > .ico{color:var(--moss);flex:none;width:22px;height:22px}
+.pg-wait > .ico{color:var(--amber,#E0B54F);flex:none;width:22px;height:22px}
+.pg-ok small,.pg-wait small{display:block;color:var(--muted);font-size:calc(13px*var(--fs))}
+.pg-list summary{cursor:pointer;color:var(--glaze);font-weight:700;font-size:calc(14px*var(--fs));margin-top:6px}
+.pg-row{display:flex;gap:12px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:calc(14px*var(--fs))}
+.pg-row .num{flex:1}
+.pg-row a{color:var(--glaze)}

@@ -79,6 +79,15 @@ export async function folderPath(...parts) { let p = null; for (const n of [driv
 
 /** Uploads a file into GraytTrees/<sub>. With {replace:true} a file of the same name there is updated
  *  in place instead of adding a second copy (Drive keeps the earlier version for 30 days). */
+/** Rename a file the app made and move it into GraytTrees/<sub> (used to file old book pages under Library). */
+export async function moveFile(id, name, sub) {
+  await getToken(false);
+  const parent = await folderPath(sub);
+  const cur = await (await api(`/files/${id}?fields=parents,name`)).json();
+  const add = (cur.parents || []).includes(parent) ? '' : `&addParents=${parent}&removeParents=${(cur.parents || []).join(',')}`;
+  if (!add && cur.name === name) return;
+  await api(`/files/${id}?fields=id${add}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+}
 export async function upload(blob, name, sub, interactive = false, { replace = false, signal } = {}) {
   await getToken(interactive);
   const parent = await folderPath(sub);

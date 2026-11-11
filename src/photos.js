@@ -80,22 +80,25 @@ function withTimeout(run, ms) {
 }
 
 /** Add photos taken or picked on the device. Returns the new photo ids. */
-export async function addPhotos(files, { trees = [], date, origin = 'Graytrees', interactive = true } = {}) {
+// Book pages (origin 'Library') are only for reference by Claude: no preview is kept in the app, just the
+// full-size copy in Drive › GraytTrees › Library, named after the book ("<title> – page 3.jpg").
+export async function addPhotos(files, { trees = [], date, origin = 'Graytrees', interactive = true, fileName, folder = 'Photos', noThumb = false } = {}) {
   const ids = [];
-  for (const f of files) {
+  for (const [i, f] of files.entries()) {
     const id = newId('p');
     const th = await resize(f, 420, 0.72);
     const full = origin === 'Library' ? await resize(f, 3200, 0.9) : await resize(f, 2000, 0.85); // book pages need to stay readable
     const taken = date ? null : await photoDate(f);
-    const rec = { id, thumb: th.dataUrl, w: th.w, h: th.h, ...(taken ? { taken: true } : {}), date: date || taken || (d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'))(new Date()), trees, origin, name: f.name || id + '.jpg' };
+    const rec = { id, thumb: noThumb ? null : th.dataUrl, w: th.w, h: th.h, ...(folder !== 'Photos' ? { filed: true } : {}), ...(taken ? { taken: true } : {}), date: date || taken || (d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'))(new Date()), trees, origin, name: f.name || id + '.jpg' };
     let driveId = null;
     // never pops up a sign-in window mid-save; and with a signal too weak to finish, give up after a while and
     // let the photo wait on the device rather than hold up the save
-    try { if (navigator.onLine) driveId = await withTimeout(signal => upload(full.blob, `${rec.date} ${id}.jpg`, 'Photos', false, { signal }), UPLOAD_WAIT_MS); } catch (e) { console.warn('upload later', e); }
+    const dname = fileName ? fileName(i) : `${rec.date} ${id}.jpg`;
+    try { if (navigator.onLine) driveId = await withTimeout(signal => upload(full.blob, dname, folder, false, { signal }), UPLOAD_WAIT_MS); } catch (e) { console.warn('upload later', e); }
     // If the full-size copy can't be kept on the device either, the small copy is still saved with the records
     // and the problem is noted (Settings & backups › About this app) rather than losing the whole photo.
     let kept = !!driveId;
-    if (!driveId) { try { await qPut(id, { blob: full.blob, name: `${rec.date} ${id}.jpg` }); kept = true; } catch (e) { logProblem('Keeping a full-size photo on this device', e); } }
+    if (!driveId) { try { await qPut(id, { blob: full.blob, name: dname, folder }); kept = true; } catch (e) { logProblem('Keeping a full-size photo on this device', e); } }
     await savePhoto({ ...rec, driveId, waiting: !driveId && kept, ...(kept ? {} : { noFull: true }) });
     ids.push(id);
   }
@@ -108,7 +111,7 @@ export async function flushPending() {
   let n = 0;
   for (const [id, v] of await qAll()) {
     try {
-      const driveId = await upload(v.blob, v.name, 'Photos', false);
+      const driveId = await upload(v.blob, v.name, v.folder || 'Photos', false);
       await savePhoto({ id, driveId, waiting: false });
       await qDel(id); n++;
     } catch (e) { console.warn('still waiting', id, e); break; }

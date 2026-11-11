@@ -1,7 +1,7 @@
 
 import { state, onChange, onSaveError, addLogs, editLog, deleteLog, restoreLog, setLogFlags, saveRecord, saveMeta, newId, setTreePhotos, savePhoto } from './store.js';
 import { addPhotos, flushPending, pendingCount, localFull } from './photos.js';
-import { fileUrl, fileText, getToken, driveConnected, listBackups, hasDriveToken, preloadGis } from './drive.js';
+import { fileUrl, fileText, getToken, driveConnected, listBackups, hasDriveToken, preloadGis, moveFile } from './drive.js';
 import { backupNow, maybeWeeklyBackup, backupDue, lastDocResult, snapshotBeforeRestore } from './backup.js';
 import { linkCollectionDoc, testDocAccess, refreshJobsFileIfWireChanged } from './docSync.js';
 import { readBackup, planRestore, planCount, restoreBackup, thumbless, rebuildThumbs } from './restore.js';
@@ -959,9 +959,21 @@ function viewLibrary(){
   <div class="shelf">${list.map(b=>`<button class="bk" data-book="${esc(b.id)}">${bookCover(b)}${b.key?`<span class="bk-key" title="Key book">${ico('star')}</span>`:''}
     <b>${esc(b.title)}</b><span>${esc(authorsTxt(b))}${b.year?' · '+esc(b.year):''}</span>${hit[b.id]?`<em class="bk-hit">${hit[b.id].map(([w,l])=>`${w}: ${esc(l.trim())}`).join('<br>')}</em>`:''}</button>`).join('') || (all.length?'<div class="empty" style="grid-column:1/-1">No books match.</div>':'')}</div>`;
 }
+const pageName = (b, n) => `${String(b.title).replace(/[\\/:*?"<>|]+/g,'').slice(0,80).trim()} – page ${n}.jpg`;
+async function tidyBookPages(){
+  if(tidyBookPages.busy || !hasDriveToken() || !navigator.onLine) return;
+  tidyBookPages.busy = true;
+  try{
+    for(const b of BOOKS()) for(const [i,id] of (b.photos||[]).entries()){
+      const p = state.photos[id]; if(!p || !p.driveId || p.filed) continue;
+      try{ await moveFile(p.driveId, pageName(b, i+1), 'Library'); await savePhoto({id, thumb:null, filed:true}); }catch(err){ console.warn('page tidy', err); }
+    }
+  }finally{ tidyBookPages.busy = false; }
+}
 function viewBook(){
   const b = BOOKS().find(x=>x.id===S.book); if(!b) return go('library');
   const pg = (b.photos||[]).filter(id=>PH[id]);
+  const inDrive = pg.filter(id=>PH[id].driveId), waiting = pg.filter(id=>!PH[id].driveId);
   const facts = [b.publisher, b.year, b.pages?b.pages+' pages':'' ].filter(Boolean).map(esc).join(' · ');
   return header('Search title, author or ISBN…') + `<button class="btn ghost small" data-nav="library" style="margin-bottom:10px">${ico('back')}Library</button>
   <div class="bk-head">${bookCover(b,'bk-big')}
@@ -978,9 +990,12 @@ function viewBook(){
     ${b.index?`<details class="card bk-text"><summary>Index</summary><div>${esc(b.index)}</div></details>`:''}`:''}
   <div class="section-h"><div><span class="eyebrow">Contents, index, key chapters</span><h2 style="font-size:calc(20px*var(--fs))">Page photos</h2></div>
     <label class="btn small">${ico('cam')}Add pages<input type="file" accept="image/*" multiple hidden data-bookphoto="${esc(b.id)}"></label></div>
-  ${pg.length?`<div class="pgrid pages">${pg.map((id,i)=>`<figure><img src="${PH[id].src}" alt="Page photo ${i+1}" loading="lazy" data-zoom="${id}"><figcaption class="num">Page photo ${i+1}</figcaption></figure>`).join('')}</div>
-    <p class="muted" style="font-size:calc(14px*var(--fs))">Tap a page to read it full size (needs signal the first time).</p>`
-   :`<div class="empty">No pages yet. Photograph the contents and index first; they make the book searchable later.</div>`}
+  ${pg.length?`<div class="card pg-status">
+      ${inDrive.length?`<div class="pg-ok">${ico('check')}<span><b>${inDrive.length} page${inDrive.length>1?'s':''} saved in Google Drive</b><small>Drive › GraytTrees › Library – for Claude to read and point you to the right page</small></span></div>`:''}
+      ${waiting.length?`<div class="pg-wait">${ico('archive')}<span><b>${waiting.length} page${waiting.length>1?'s':''} waiting to upload</b><small>Kept on this device until Drive is connected</small></span></div>`:''}
+      <details class="pg-list"><summary>Show pages</summary>${pg.map((id,i)=>`<div class="pg-row"><span class="num">Page ${i+1}</span>${PH[id].driveId?`<a href="https://drive.google.com/file/d/${PH[id].driveId}/view" target="_blank" rel="noopener">Open in Drive</a>`:'<span class="muted">waiting</span>'}<button class="lb-date" data-pgdel2="${id}">Remove</button></div>`).join('')}</details>
+    </div>`
+   :`<div class="empty">No pages yet. Photograph the contents and index; they go straight to Google Drive for Claude to read.</div>`}
   ${b.summary?`<div class="section-h"><h2 style="font-size:calc(20px*var(--fs))">About this book</h2></div><div class="card muted" style="padding:14px 16px;font-size:calc(15px*var(--fs));white-space:pre-line">${esc(b.summary)}</div>`:''}
   <p class="muted" style="font-size:calc(13.5px*var(--fs));margin-top:18px">${esc(b.source||'Added in GraytTrees')}${b.location?' · '+esc(b.location):''}</p>`;
 }
@@ -1151,7 +1166,7 @@ document.addEventListener('change', async e=>{
   }
   if(e.target.dataset.bookphoto){
     const bid=e.target.dataset.bookphoto, files=[...e.target.files]; toast(`Saving ${files.length} page${files.length>1?'s':''}…`);
-    try{ const ids = await addPhotos(files, {origin:'Library'}); const b=BOOKS().find(x=>x.id===bid); await saveRecord('books', {...b, photos:[...(b.photos||[]), ...ids]}); toast(`Added ${ids.length} page${ids.length>1?'s':''}`); }catch(err){ toast('Could not add pages: '+err.message); } driveCatchUp();
+    try{ const b0=BOOKS().find(x=>x.id===bid), n0=(b0.photos||[]).length; const ids = await addPhotos(files, {origin:'Library', noThumb:true, folder:'Library', fileName:i=>pageName(b0, n0+i+1)}); const b=BOOKS().find(x=>x.id===bid); await saveRecord('books', {...b, photos:[...(b.photos||[]), ...ids]}); toast(`Added ${ids.length} page${ids.length>1?'s':''}`); }catch(err){ toast('Could not add pages: '+err.message); } driveCatchUp();
   }
   if(e.target.dataset.toolphoto){
     const tid=e.target.dataset.toolphoto, files=[...e.target.files]; toast(`Saving ${files.length} photo${files.length>1?'s':''}…`);
@@ -1192,7 +1207,7 @@ async function loadFull(lb, p, interactive){
   }
 }
 document.addEventListener('click', async e=>{
-  const c = e.target.closest('[data-rslist],[data-rsmode],[data-rsrun],[data-rsthumbs],[data-clearproblems],[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-restorerec],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-doclink],[data-doctest],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-pgcover],[data-otd],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
+  const c = e.target.closest('[data-rslist],[data-rsmode],[data-rsrun],[data-rsthumbs],[data-clearproblems],[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-restorerec],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-doclink],[data-doctest],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-pgdel2],[data-pgcover],[data-otd],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
   if(!c) return;
   const d = c.dataset;
   if(c.classList.contains('lightbox')){ if(e.target.closest('.lb-edit,.lb-full a')) return; c.remove(); return; }
@@ -1203,6 +1218,7 @@ document.addEventListener('click', async e=>{
   if('clearproblems' in d){ clearProblems(); render(); return; }
   if('phdate' in d){ const p=PH[d.phdate]; const v=p.date&&p.date.length===10?p.date:''; c.parentElement.outerHTML=`<p class="lb-edit"><label>Taken <input type="date" id="phd" value="${v}" max="${localDay()}"></label> <span class="muted">or year only</span> <input id="phy" type="number" inputmode="numeric" min="1980" max="${TODAY.getFullYear()}" placeholder="e.g. 2009" value="${p.date&&p.date.length===4?p.date:''}" style="width:6.5em"> <button class="btn small" data-phsave="${d.phdate}">Save</button></p>`; return; }
   if('pgcover' in d){ const b=BOOKS().find(x=>x.id===S.book); await saveRecord('books', {...b, coverPhoto:d.pgcover}); document.querySelector('.lightbox')?.remove(); toast('Cover set'); return; }
+  if('pgdel2' in d){ const b=BOOKS().find(x=>x.id===S.book); await saveRecord('books', {...b, photos:(b.photos||[]).filter(x=>x!==d.pgdel2)}); toast('Page removed'); return; }
   if('pgdel' in d){ const b=BOOKS().find(x=>x.id===S.book); await saveRecord('books', {...b, photos:(b.photos||[]).filter(x=>x!==d.pgdel)}); document.querySelector('.lightbox')?.remove(); toast('Page removed'); return; }
   if('lbfull' in d){ const lb=c.closest('.lightbox'); const p=Object.values(PH).find(x=>x.driveId===d.lbfull); c.parentElement.textContent='Loading full size…'; await loadFull(lb, p, true); return; }
   if('phcover' in d){ const t=byId[S.tree]; await saveRecord('trees', {...t, cover:d.phcover||null}); document.querySelector('.lightbox')?.remove(); toast(d.phcover?'Tree photo set':'Showing the newest photo'); return; }
@@ -1294,6 +1310,7 @@ async function driveCatchUp(){
   S.driveNeed=null;
   const n = await flushPending(); if(n) toast(`${n} photo${n>1?'s':''} uploaded`);
   const b = await maybeWeeklyBackup(); if(b) toast('Weekly backup saved to Drive');
+  tidyBookPages();
   if(!b) await refreshJobsFileIfWireChanged().catch(err=>logProblem('Wire-check dates', err));
   if(await pendingCount()) S.driveNeed = {photos: await pendingCount(), backup:false};
   quietRender();
