@@ -542,3 +542,7 @@ body.dock-gap .rail{padding-bottom:calc(16px + var(--dock))}
 .due-main{min-width:0}
 .home-grid > div,.home-card{min-width:0}
 .main{overflow-x:clip}
+.jobs .home-h.next{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.jobs .home-h.next b{font-size:calc(15px*var(--fs));color:var(--muted)}
+.jobs .todo.next li::before{background:var(--glaze)}
+.jobs{display:flex;flex-direction:column}.jobs .linkbtn{margin-top:auto;align-self:flex-start;padding-top:10px}

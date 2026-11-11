@@ -106,7 +106,7 @@ export function setTextSize(v){ try{ if(v) localStorage.setItem('gt-fs', v); }ca
 setTextSize();
 /* Room for the Samsung taskbar (unfolded Fold, tablet): when the installed app runs full screen, Android lays the
    taskbar over the bottom of it and doesn't tell the page. 'auto' = on for the installed app on big Android screens. */
-function dockGap(){ try{ return localStorage.getItem('gt-dock') || 'auto'; }catch(e){ return 'auto'; } }
+function dockGap(){ try{ const v = localStorage.getItem('gt-dock'); return v==='on' ? 'on' : 'off'; }catch(e){ return 'off'; } }
 function applyDockGap(){
   const v = dockGap();
   const big = Math.min(screen.width, screen.height) >= 600, app = matchMedia('(display-mode: standalone)').matches, android = /Android/i.test(navigator.userAgent);
@@ -178,12 +178,13 @@ const dayStart = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const daysAgo = s => Math.round((dayStart(TODAY) - parseD(s)) / 864e5);
 const agoShort = s => { const n=daysAgo(s); return n<=0?'today':n===1?'yesterday':n<14?n+' d':n<60?Math.round(n/7)+' wk':Math.round(n/30.4)+' mo'; };
 function lastKind(kinds, trees){ return LOGS.find(l => S.ticks[l.id]!=='tick' && l.actions.some(a=>kinds.includes(kindOf(a))) && (!trees || l.trees.some(id=>trees.includes(id)))); }
+const lc = n => n.toLowerCase().replace(/\b(chinese|japanese|buddhist)\b/g, w=>w[0].toUpperCase()+w.slice(1));
 function groupList(gs){
   const nGroups = new Set(TREES.filter(t=>t.status!=='past').map(t=>t.group).filter(g=>g!=='other')).size;
   const all = gs.every(g=>g.done), some = gs.filter(g=>g.done);
   if(gs.length===nGroups && (all || !some.length)) return 'all trees'+(all?' ✓':'');
-  if(gs.length>=6 && !some.length){ const inc=new Set(gs.map(g=>g.name)); const miss=Object.entries(GUIDE).filter(([k,v])=>k!=='other' && !inc.has(v.name) && TREES.some(t=>t.status!=='past'&&t.group===k)).map(([,v])=>v.name.toLowerCase()); if(miss.length<=3) return 'all except '+miss.join(', '); }
-  return gs.map(g=>`<i class="${g.done?'d':''}">${esc(g.name.toLowerCase())}${g.done?' ✓':''}</i>`).join(', ');
+  if(gs.length>=6 && !some.length){ const inc=new Set(gs.map(g=>g.name)); const miss=Object.entries(GUIDE).filter(([k,v])=>k!=='other' && !inc.has(v.name) && TREES.some(t=>t.status!=='past'&&t.group===k)).map(([,v])=>lc(v.name)); if(miss.length<=3) return 'all except '+miss.join(', '); }
+  return gs.map(g=>`<i class="${g.done?'d':''}">${esc(lc(g.name))}${g.done?' ✓':''}</i>`).join(', ');
 }
 function wireCard(){
   const soon = TREES.filter(t=>t.status!=='past').map(t=>({t, w:wireOf(t)})).filter(({w})=>w && w.due <= dayStart(TODAY)).sort((a,b)=>a.w.due-b.w.due);
@@ -223,8 +224,21 @@ function homeTop(){
   // wiring isn't listed: wired trees get their own wire-check reminders
   const order = ['struct','defol','clean','prune'];
   const tasks = Object.entries(byTask).filter(([k])=>order.includes(k)).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
-  const monthCard = `<div class="card home-card jobs"><div class="home-h"><b>Could do this month</b><span>if time permits</span></div>
+  // next month, to plan ahead: its seasonal jobs, and any repot window that opens then
+  const NEXT_M = NOW_M % 12 + 1, nextBy = {}, opens = [];
+  for(const [k,g] of Object.entries(GUIDE)){
+    if(k==='other' || !active.some(t=>t.group===k)) continue;
+    for(const [task, ms] of Object.entries(g.rows)){
+      if(task==='repot'){ if(ms.includes(NEXT_M) && !ms.includes(NOW_M)) opens.push(lc(g.name)); continue; }
+      if(order.includes(task) && ms.includes(NEXT_M) && !ms.includes(NOW_M)) (nextBy[task] ||= []).push({name:g.name, done:false});
+    }
+  }
+  const nextTasks = Object.entries(nextBy).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0]));
+  const nextList = [...nextTasks.map(([task,gs])=>`<li><b>${esc(TASKS[task].label)}</b><span>${groupList(gs)}</span></li>`),
+    ...(opens.length?[`<li><b>Repot window opens</b><span>${esc(opens.join(', '))}</span></li>`]:[])];
+  const monthCard = `<div class="card home-card jobs"><div class="home-h"><b>This month</b></div>
     ${tasks.length?`<ul class="todo">${tasks.map(([task,gs])=>`<li><b>${esc(TASKS[task].label)}</b><span>${groupList(gs)}</span></li>`).join('')}</ul>`:'<p class="muted" style="margin:4px 0 0">Nothing seasonal this month.</p>'}
+    ${nextList.length?`<div class="home-h next"><b>Coming in ${MONTHS_L[NEXT_M-1]}</b></div><ul class="todo next">${nextList.join('')}</ul>`:''}
     <button class="linkbtn" data-nav="season">${ico('season')}Calendar</button></div>`;
   // featured tree: a different tree each time the app is opened, shown with its most recent photo
   const withPh = active.filter(t=>t.photos.some(id=>PH[id]));
@@ -643,8 +657,8 @@ function viewSettings(){
   <div class="stack">
     <div class="card" style="padding:16px"><b>Text size</b><p class="muted" style="margin:4px 0 10px;font-size:15px">Set separately on each device.</p>
       <div class="seg" role="group" aria-label="Text size">${[['1','Standard'],['1.12','Large'],['1.25','Larger']].map(([k,l])=>`<button data-fs="${k}" aria-pressed="${textSize()===k}">${l}</button>`).join('')}</div>
-      <b style="display:block;margin-top:16px">Room for the phone's taskbar</b><p class="muted" style="margin:4px 0 10px;font-size:15px">Lifts the bottom menu above the Samsung taskbar (unfolded Fold, tablet). Set separately on each device.</p>
-      <div class="seg" role="group" aria-label="Room for the taskbar">${[['auto','Automatic'],['on','On'],['off','Off']].map(([k,l])=>`<button data-dock="${k}" aria-pressed="${dockGap()===k}">${l}</button>`).join('')}</div></div>
+      <b style="display:block;margin-top:16px">Room for the phone's taskbar</b><p class="muted" style="margin:4px 0 10px;font-size:15px">Only needed if the bottom menu ever disappears behind the Samsung taskbar. Set separately on each device.</p>
+      <div class="seg" role="group" aria-label="Room for the taskbar">${[['off','Off'],['on','On']].map(([k,l])=>`<button data-dock="${k}" aria-pressed="${dockGap()===k}">${l}</button>`).join('')}</div></div>
     <div class="card" style="padding:16px"><b>Google Drive</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">Full-size photos and weekly backups go into a "GraytTrees" folder in your Drive. The app can only see files it created.</p>
       ${driveConnected()?`<span class="pill ok">Connected</span>`:`<button class="btn small" data-drive>${ico('check')}Connect Google Drive</button>`}
       <p class="muted num" style="font-size:calc(14px*var(--fs));margin:10px 0 0" id="pendingInfo"></p></div>
