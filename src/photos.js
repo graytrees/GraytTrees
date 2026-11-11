@@ -3,6 +3,7 @@
 // copy waits on the device and uploads automatically next time the app is online.
 import { upload, driveConnected, hasDriveToken } from './drive.js';
 import { savePhoto, newId, state } from './store.js';
+import { logProblem } from './problems.js';
 
 function loadImg(blob) {
   return new Promise((res, rej) => { const u = URL.createObjectURL(blob); const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
@@ -63,9 +64,11 @@ export const makeThumb = async blob => (await resize(blob, 420, 0.72)).dataUrl;
 /* --- tiny IndexedDB queue for full-size photos waiting to upload --- */
 const DB = 'gt-pending';
 function idb() { return new Promise((res, rej) => { const r = indexedDB.open(DB, 1); r.onupgradeneeded = () => r.result.createObjectStore('q'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-async function qPut(id, val) { const d = await idb(); return new Promise(r => { const t = d.transaction('q', 'readwrite'); t.objectStore('q').put(val, id); t.oncomplete = r; }); }
-async function qAll() { const d = await idb(); return new Promise(r => { const out = []; const c = d.transaction('q').objectStore('q').openCursor(); c.onsuccess = e => { const cur = e.target.result; if (cur) { out.push([cur.key, cur.value]); cur.continue(); } else r(out); }; }); }
-async function qDel(id) { const d = await idb(); return new Promise(r => { const t = d.transaction('q', 'readwrite'); t.objectStore('q').delete(id); t.oncomplete = r; }); }
+// A storage failure (for example the device is out of space) rejects, so a save can report it instead of waiting forever.
+const settle = (t, res, rej) => { t.oncomplete = () => res(); t.onerror = t.onabort = () => rej(t.error || new Error('This device could not store the photo')); };
+async function qPut(id, val) { const d = await idb(); return new Promise((res, rej) => { const t = d.transaction('q', 'readwrite'); settle(t, res, rej); t.objectStore('q').put(val, id); }); }
+async function qAll() { const d = await idb(); return new Promise((res, rej) => { const out = []; const c = d.transaction('q').objectStore('q').openCursor(); c.onsuccess = e => { const cur = e.target.result; if (cur) { out.push([cur.key, cur.value]); cur.continue(); } else res(out); }; c.onerror = () => rej(c.error); }); }
+async function qDel(id) { const d = await idb(); return new Promise((res, rej) => { const t = d.transaction('q', 'readwrite'); settle(t, res, rej); t.objectStore('q').delete(id); }); }
 export async function localFull(id) { try { const d = await idb(); const v = await new Promise(r => { const g = d.transaction('q').objectStore('q').get(id); g.onsuccess = () => r(g.result); g.onerror = () => r(null); }); return v?.blob ? URL.createObjectURL(v.blob) : null; } catch (e) { return null; } }
 export async function pendingCount() { try { return (await qAll()).length; } catch (e) { return 0; } }
 
@@ -89,8 +92,11 @@ export async function addPhotos(files, { trees = [], date, origin = 'Graytrees',
     // never pops up a sign-in window mid-save; and with a signal too weak to finish, give up after a while and
     // let the photo wait on the device rather than hold up the save
     try { if (navigator.onLine) driveId = await withTimeout(signal => upload(full.blob, `${rec.date} ${id}.jpg`, 'Photos', false, { signal }), UPLOAD_WAIT_MS); } catch (e) { console.warn('upload later', e); }
-    if (!driveId) await qPut(id, { blob: full.blob, name: `${rec.date} ${id}.jpg` });
-    await savePhoto({ ...rec, driveId, waiting: !driveId });
+    // If the full-size copy can't be kept on the device either, the small copy is still saved with the records
+    // and the problem is noted (Settings & backups › About this app) rather than losing the whole photo.
+    let kept = !!driveId;
+    if (!driveId) { try { await qPut(id, { blob: full.blob, name: `${rec.date} ${id}.jpg` }); kept = true; } catch (e) { logProblem('Keeping a full-size photo on this device', e); } }
+    await savePhoto({ ...rec, driveId, waiting: !driveId && kept, ...(kept ? {} : { noFull: true }) });
     ids.push(id);
   }
   return ids;

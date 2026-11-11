@@ -28,7 +28,7 @@ export { COLS };
 export const state = { trees: [], logs: [], photos: {}, pots: [], mixes: [], books: [], tools: [], meta: {}, ready: {}, pending: false };
 
 let uid = null;
-const unsubs = [];
+const unsubs = [], pendingBy = {};
 const listeners = new Set();
 export const onChange = fn => { listeners.add(fn); return () => listeners.delete(fn); };
 const emit = () => listeners.forEach(fn => fn(state));
@@ -48,13 +48,15 @@ export function start(userId) {
       else if (name === 'logs') state.logs = docs.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdMs || 0) - (a.createdMs || 0));
       else state[name] = docs;
       state.ready[name] = true;
-      state.pending = snap.metadata.hasPendingWrites;
+      // "Syncing…" stays up while any kind of record is still waiting to reach the cloud, not just the last one heard from
+      pendingBy[name] = snap.metadata.hasPendingWrites;
+      state.pending = Object.values(pendingBy).some(Boolean);
       state.fromCache = snap.metadata.fromCache;
       emit();
     }, err => { console.error(name, err); state.error = err.message; emit(); }));
   }
 }
-export function stop() { unsubs.splice(0).forEach(u => u()); }
+export function stop() { unsubs.splice(0).forEach(u => u()); for (const k of Object.keys(pendingBy)) delete pendingBy[k]; }
 export const isEmpty = () => state.ready.trees && state.trees.length === 0;
 
 const stamp = () => ({ updatedAt: serverTimestamp() });

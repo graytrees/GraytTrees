@@ -48,7 +48,7 @@ More › Settings & backups › Restore from a backup. Choose a backup from Driv
 
 ## Working without signal
 
-Saves are kept on the device at once and sent when the phone is back in range; the app never waits for the server. Photos taken offline wait on the device and upload after the next Drive reconnect. A save the server later refuses is shown and listed under Settings & backups › About this app.
+Saves are kept on the device at once and sent when the phone is back in range; the app never waits for the server. Photos taken offline wait on the device and upload after the next Drive reconnect. A save the server later refuses is shown and listed under Settings & backups › About this app. If the device has no room to keep a full-size photo while it waits, the small copy is still saved and the problem is listed there too.
 
 ## Wire-check reminder on the day
 

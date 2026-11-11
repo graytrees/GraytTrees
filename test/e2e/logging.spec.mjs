@@ -60,3 +60,17 @@ test('seasonal card is a reminder list with nothing to tick, and wiring is not o
   await expect(card.locator('input[type=checkbox], [data-tick]')).toHaveCount(0);
   await expect(card).not.toContainText(/\bWire\b/);
 });
+
+test('a date in the future, or no date, is caught before saving', async ({ page }) => {
+  await start(page);
+  const before = (await db(page, 'logs')).length;
+  await page.locator('.tabbar [data-log]').click();
+  const sheet = page.locator('.sheet.log');
+  const d = new Date(Date.now() + 3 * 864e5), future = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  await fillLog(page, { trees: ['Test Fig'], jobs: ['Light prune'], date: future });
+  await expect(sheet.locator('.err')).toContainText('in the future');
+  await sheet.locator('#lgdate').fill('');
+  await sheet.locator('[data-lgsave]').click();
+  await expect(sheet.locator('.err')).toContainText('Pick the date');
+  expect((await db(page, 'logs')).length).toBe(before);                                      // nothing was saved
+});

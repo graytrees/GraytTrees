@@ -111,5 +111,5 @@ export const fileText = async id => (await api(`/files/${id}?alt=media`)).text()
 export async function listBackups() {
   const parent = await folderPath('Backups');
   const q = encodeURIComponent(`'${parent}' in parents and trashed=false`);
-  return (await (await api(`/files?q=${q}&orderBy=createdTime desc&pageSize=60&fields=files(id,name,createdTime,size)`)).json()).files || [];
+  return (await (await api(`/files?q=${q}&orderBy=createdTime desc&pageSize=300&fields=files(id,name,createdTime,size)`)).json()).files || [];
 }

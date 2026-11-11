@@ -123,6 +123,14 @@ test('wire check: due after 3 months, cleared by "Checked", and its date is save
   await backupNow(page);
   const jobs = name => backups(page).then(b => JSON.parse(b[Object.keys(b).filter(n => n.startsWith('graytrees-jobs-')).sort().pop()]));
   expect((await jobs()).wireChecks.map(w => w.tree)).toEqual(['Test Black Pine', 'Test Elm']);
+  // the TickTick preview shows the same list that was saved, wire check included
+  await tabbar(page, 'season').click();
+  await expect(page.locator('.tt-list')).toContainText('Check wire: Test Black Pine');
+  // and the tree's Reminders tab says when the next check is
+  await home(page);
+  await page.locator('#main .tcard[data-tree="t-elm"]').click();
+  await page.locator('[data-tab="reminders"]').click();
+  await expect(page.locator('[role="tabpanel"]')).toContainText('Wire on: check every 3 months');
   await home(page);
   await card.locator('[data-logkinds="wirechk"]').click();
   await fillLog(page, {});
@@ -150,4 +158,15 @@ test('Settings shows the app version', async ({ page }) => {
   await start(page);
   await more(page, 'settings');
   await expect(page.locator('#buildLabel')).toHaveText('test build');
+});
+
+test('a tree with no repot on record is listed under Repots only while its repot window is open', async ({ page }) => {
+  await start(page);
+  const month = new Date().getMonth() + 1, open = [7, 8].includes(month);   // elms repot mid-July to August
+  const repots = page.locator('.home-card', { hasText: 'Repots' });
+  if (open) await expect(repots).toContainText('Test Elm');
+  else await expect(page.locator('.home-card', { hasText: 'Repots' }).filter({ hasText: 'Test Elm' })).toHaveCount(0);
+  // the tree itself still says so
+  await page.locator('#main .tcard[data-tree="t-elm"]').click();
+  await expect(page.locator('#main')).toContainText('No repot on record');
 });

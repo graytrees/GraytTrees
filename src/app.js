@@ -14,7 +14,7 @@ import { GUIDE, CALS, calOf, AZ_AFTER, repotWin, autumnWin, evMin, addMonths, ma
 
 const D = { pots: [], done: [] };
 const TODAY = new Date();
-let TREES = [], LOGS = [], DELETED = [], PH = {}, byId = {}, MIXES = [];
+let TREES = [], LOGS = [], DELETED = [], PH = {}, byId = {}, MIXES = [], BYTREE = {};
 const $ = (s, el=document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ico = (n, cls='') => `<svg class="ico ${cls}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
@@ -58,7 +58,6 @@ const ROUTINES = [
   {name:'Spray Mancozeb (fungicide)', every:'Every 4 weeks', icon:'shield', first:'2026-10-24', weeks:4}
 ];
 function routineDates(r, y, m){ const out=[]; let d=parseD(r.first); while(d.getFullYear()<y || (d.getFullYear()===y && d.getMonth()<m-1)) d.setDate(d.getDate()+7*r.weeks); while(d.getFullYear()===y && d.getMonth()===m-1){ out.push(new Date(d)); d.setDate(d.getDate()+7*r.weeks);} return out; }
-function nextSat(){const d=new Date(TODAY);d.setDate(d.getDate()+((6-d.getDay()+7)%7||7));return 'Next: Sat '+d.getDate()+' '+MONTHS[d.getMonth()];}
 
 /* --- helpers --- */
 const evText = t => t.every ? t.every[0]+'–'+t.every[1]+' years' : ((n=>n===1?'year':n+' years')((GUIDE[t.group]||GUIDE.other).every));
@@ -78,11 +77,11 @@ function parseD(s){ if(!s) return null; const p=s.split('-').map(Number); return
 function fmtD(s, prec){ if(!s) return 'Date unknown'; if(String(s).length===4) return String(s); const d=parseD(s); return (prec==='month'||s.length===7) ? MONTHS_L[d.getMonth()]+' '+d.getFullYear() : d.getDate()+' '+MONTHS[d.getMonth()]+' '+d.getFullYear(); }
 function ago(s){ const d=parseD(s); if(!d) return ''; const m=(TODAY.getFullYear()-d.getFullYear())*12+TODAY.getMonth()-d.getMonth(); if(m<1) return 'this month'; if(m<12) return m+' mo ago'; const y=Math.floor(m/12), r=m%12; return y+' yr'+(r>=6?' ½':'')+' ago'; }
 function years(s){ const d=parseD(s); if(!d) return null; return Math.floor((TODAY-d)/31557600000); }
-function logsFor(id){ return LOGS.filter(l => l.trees.includes(id)); }
+function logsFor(id){ return BYTREE[id] || []; }
 function lastOf(id, keys){ return logsFor(id).find(l => S.ticks[l.id]!=='tick' && l.actions.some(a => keys.includes(kindOf(a)))); }
 function repotStatus(t){
   const g = GUIDE[t.group] || GUIDE.other, last = lastOf(t.id, ['repot']);
-  if(!last) return {cls:'due', text:'No repot on record', due:true, last:null};
+  if(!last) return {cls:'due', text:'No repot on record', due:repotWin(t).includes(NOW_M), last:null};
   const d = parseD(last.date); let next = new Date(d); next.setFullYear(d.getFullYear()+evMin(t));
   const rm = repotMonth(t); if(rm) next = new Date(rm[0], rm[1]-1, 1);
   const months = (next.getFullYear()-TODAY.getFullYear())*12 + next.getMonth()-TODAY.getMonth();
@@ -143,11 +142,6 @@ function viewTrees(past=false){
   const list = TREES.filter(t => (past ? t.status==='past' : t.status!=='past') && inGroup(t) && (!S.q || matches(t,S.q)));
   const lastWork = t => (logsFor(t.id)[0]||{}).date || '';
   list.sort(S.sort==='recent' ? (a,b)=> lastWork(b).localeCompare(lastWork(a)) : (a,b)=> a.name.localeCompare(b.name));
-  const all = past ? [] : TREES.filter(t=>t.status!=='past').map(t=>({t, r:repotStatus(t)}));
-  const due = all.filter(x=>x.r.due);
-  const upcoming = all.filter(x=>x.r.next && !x.r.due).sort((a,b)=>a.r.next-b.r.next).slice(0,4);
-  const g = Object.values(GUIDE);
-  const workNow = past ? [] : Object.entries(GUIDE).filter(([k,v])=>k!=='other').map(([k,v])=>[v.name, Object.entries(v.rows).filter(([task,ms])=>ms.includes(NOW_M)).map(([task])=>TASKS[task].label)]).filter(x=>x[1].length);
   const histHits = S.q && !past ? LOGS.filter(l => l.text.toLowerCase().includes(S.q.toLowerCase())).slice(0,8) : [];
   return header() + (past?'':proto()) + (past ? `<div class="section-h"><div><span class="eyebrow">Kept for the record</span><h2>Past trees</h2></div><span class="muted num">${list.length}</span></div><p class="muted" style="margin-top:-6px">Trees that died, were given away or left bonsai. Their full history stays searchable.</p>` : `
   ${(()=>{ const b=state.meta.backup, days=b?.lastMs?Math.floor((Date.now()-b.lastMs)/864e5):null; return past||(days!==null&&days<=8) ? '' : `<div class="card" style="padding:12px 16px;margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:180px">${ico('archive')} <b>${days===null?'No backup yet':'Last backup '+days+' days ago'}</b><span class="muted" style="display:block;font-size:calc(14px*var(--fs))">The weekly backup to Drive hasn't run${state.meta.backupError?' ('+esc(state.meta.backupError)+')':''}.</span></span><button class="btn small" data-backup>${ico('archive')}Back up now</button></div>`; })()}
@@ -414,7 +408,8 @@ function tabRem(t){
   return `<div class="more-list">
     ${r?`<button>${ico('pot')}<div>Repot every ${evText(t)}<span>${esc(r.text)}${r.last?' · last '+fmtD(r.last.date):''}</span></div></button>`:''}
     <button>${ico('scissors')}<div>Maintenance prune in season<span>${(g.rows.prune||g.rows.struct||[]).map(m=>MONTHS[m-1]).join(', ')||'—'}</span></div></button>
-    <button>${ico('bell')}<div>Send to TickTick<span>Reminders will go to your Bonsai list in TickTick once the app is live</span></div></button>
+    ${(()=>{ const w = t.status==='past'?null:wireOf(t); return w ? `<button>${ico('wire')}<div>Wire on: check every ${w.fast?'8 weeks':'3 months'}<span>${w.checked?'Last checked':'Wired'} ${fmtD(w.lastCheck)} · next check ${fmtD(localDay(w.due))}</span></div></button>` : ''; })()}
+    <button>${ico('bell')}<div>In TickTick<span>Repots and seasonal jobs arrive in your Bonsai list on the 1st of each month. A wire check appears there on the day it falls due.</span></div></button>
   </div>`;
 }
 
@@ -433,7 +428,7 @@ function viewAhead(){
     <div class="card" style="padding:16px">
       <h3 style="font-size:calc(20px*var(--fs))">${MONTHS_L[m-1]} ${y}</h3>
       ${A.wires.length?`<span class="eyebrow" style="display:block;margin-top:12px">Wire checks (${A.wires.length})</span>${A.wires.map(({t,w})=>`<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${w.checked?'Last checked':'Wired'} ${fmtD(w.lastCheck)} · check by ${fmtD(localDay(w.due))}</span></span>${ico('wire')}</button>`).join('')}`:''}
-      ${A.repots.length?`<span class="eyebrow" style="display:block;margin-top:12px">Repots due (${A.repots.length})</span>${A.repots.map(t=>{const l=lastOf(t.id,['repot']); return `<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${l?'Last repot '+fmtD(l.date,l.precision):'No repot on record'} · every ${evText(t)} yrs</span></span>${ico('pot')}</button>`;}).join('')}`:''}
+      ${A.repots.length?`<span class="eyebrow" style="display:block;margin-top:12px">Repots due (${A.repots.length})</span>${A.repots.map(t=>{const l=lastOf(t.id,['repot']); return `<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${l?'Last repot '+fmtD(l.date,l.precision):'No repot on record'} · every ${evText(t)}</span></span>${ico('pot')}</button>`;}).join('')}`:''}
       ${A.autumn.length?`<span class="eyebrow" style="display:block;margin-top:14px">Autumn repot option (${A.autumn.length}) · light root work only</span>${A.autumn.map(t=>{const l=lastOf(t.id,['repot']); return `<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${t.autumn==='yes'?'Flagged by you':'Overdue'}${l?' · last repot '+fmtD(l.date,l.precision):''}</span></span><span class="pill unc">Optional</span></button>`;}).join('')}`:''}
       ${A.opens.length?`<span class="eyebrow" style="display:block;margin-top:14px">Seasons opening</span>${A.opens.map(o=>`<div class="due-item"><span class="ph" style="width:44px;height:44px;border-radius:10px;flex:none;background:${TASKS[o.task].c};color:#fff">${ico(o.task==='wire'?'wire':o.task==='defol'?'leaf':o.task==='potash'?'drop':o.task==='clean'?'chop':o.task==='struct'?'cutter':'scissors')}</span><span class="t"><b>${esc(tickTitle(o))}</b><span class="muted" style="font-size:calc(14px*var(--fs))">${o.trees.map(t=>esc(t.name)).slice(0,4).join(', ')}${o.trees.length>4?' and '+(o.trees.length-4)+' more':''}</span></span></div>`).join('')}`:''}
       ${A.coll.length?`<span class="eyebrow" style="display:block;margin-top:14px">Whole collection</span>${A.coll.map(c=>`<div class="due-item"><span class="ph" style="width:44px;height:44px;border-radius:10px;flex:none">${ico('tree')}</span><span class="t"><b>${esc(c)}</b></span></div>`).join('')}`:''}
@@ -450,7 +445,7 @@ function viewAhead(){
       <span class="eyebrow">TickTick preview · ${sel===0?'this month':'arrives 1 '+MONTHS_L[m-1]+', 7am'}</span>
       <p class="muted" style="font-size:calc(14.5px*var(--fs));margin:6px 0 10px">One task in your <b style="color:var(--ink)">Bonsai</b> list, due the end of the month. Tick items off as you get to them.</p>
       <div class="tt-task"><span class="tt-box"></span><div style="min-width:0;flex:1"><b>Bonsai jobs – ${MONTHS_L[m-1]} ${y}</b><span>Due ${new Date(y,m,0).getDate()} ${MONTHS[m-1]} · ${nItems} checklist item${nItems===1?'':'s'}</span>
-        <ul class="tt-list">${[...A.repots.map(t=>'Repot '+t.name), ...A.autumn.map(t=>'Autumn option: repot '+t.name+' (light root work)'), ...A.opens.map(o=>tickTitle(o)), ...A.coll].map(x=>`<li><span class="tt-box sm"></span>${esc(x)}</li>`).join('') || '<li class="muted">Nothing extra this month – routines continue</li>'}</ul>
+        <ul class="tt-list">${A.items.map(x=>`<li><span class="tt-box sm"></span>${esc(x)}</li>`).join('') || '<li class="muted">Nothing extra this month – routines continue</li>'}</ul>
         <span style="display:block;margin-top:8px">Notes: this month's advice (${(TIPS[m]||[]).map(x=>esc(x.t.toLowerCase())).join(', ')})</span></div></div>
     </div>
   </div>`;
@@ -477,7 +472,7 @@ function viewHistory(){
   if(S.q) L = L.filter(l=>(l.text+' '+l.trees.map(id=>byId[id]?.name).join(' ')).toLowerCase().includes(S.q.toLowerCase()));
   const shown = L.slice(0, S.histLimit||60);
   const years = new Set(LOGS.map(l=>(l.date||'').slice(0,4)).filter(Boolean));
-  return header('Search all history…') + `<div class="section-h"><div><span class="eyebrow">Every tree · every year</span><h2>History</h2></div><span class="muted num">${LOGS.length} entries · ${Math.min(...years)}–${Math.max(...years)}</span></div>
+  return header('Search all history…') + `<div class="section-h"><div><span class="eyebrow">Every tree · every year</span><h2>History</h2></div><span class="muted num">${LOGS.length} entries${years.size?` · ${Math.min(...years)}–${Math.max(...years)}`:''}</span></div>
   <div class="chips" role="group" aria-label="Filter by job">${['all','repot','root','prune','hard','wire','fert','insect','fung','note'].map(k=>`<button class="chip" data-hact="${k}" aria-pressed="${S.histAct===k}">${k==='all'?'All jobs':ACT[k].label}</button>`).join('')}</div>
   <p class="muted num" style="font-size:calc(14px*var(--fs))">${L.length} matching</p>
   ${byYear(shown,true)}
@@ -582,7 +577,7 @@ function viewHow(){
     <div class="mrow">
       ${mnode('archive','Records','Firebase (Sydney) · '+live+' trees, '+LOGS.length+' entries, pots, mixes','k-data')}
       ${mnode('cam','Google Drive','GraytTrees folder · full-size photos and the weekly backup ('+last.replace('Last one','last one')+')','k-data','settings')}
-      ${mnode('bell','TickTick','Bonsai list · Saturday feed and spray routines, plus a jobs checklist on the 1st of each month','k-data')}
+      ${mnode('bell','TickTick','Bonsai list · Saturday feed and spray routines, a jobs list on the 1st of each month, and wire checks on the day they fall due','k-data')}
     </div>
     ${mdown('copied by')}
     ${mnode('shield','IDrive','Google Personal Backup · a second copy of your whole Google account, Drive included','k-data')}
@@ -730,7 +725,7 @@ function renderSheet(){
       ${LG.editing ? jobsEditor() : `${COMBOS.length?`<div class="combos">${COMBOS.map(c=>`<button class="combo" data-combo="${c.id}">+ ${esc(c.label)}</button>`).join('')}</div>`:''}
       <div class="actgrid">${JOBS.filter(j=>!j.hidden).map(j=>`<button class="actbtn" data-lga="${j.id}" aria-pressed="${LG.acts.has(j.id)}">${ico(j.icon||KIND_ICON[j.kind]||'eye')}${esc(j.label)}</button>`).join('')}</div>`}</div>
     <div class="step" style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
-      <label class="field"><span class="eyebrow">Date</span><input type="date" id="lgdate" value="${LG.date}"></label>
+      <label class="field"><span class="eyebrow">Date</span><input type="date" id="lgdate" value="${LG.date}" max="${localDay()}"></label>
       <label class="field"><span class="eyebrow">Soil mix (if repotted)</span><select id="lgmix"><option value="">—</option>${MIXES.map(m=>`<option${LG.mix===m.name?' selected':''}>${esc(m.name)}</option>`).join('')}</select></label>
     </div>
     <label class="field step"><span class="eyebrow">Notes (optional)</span><textarea id="lgnote" rows="2" placeholder="e.g. Heavy cut back, removed two lower branches">${esc(LG.note)}</textarea></label>
@@ -754,6 +749,8 @@ function jobsEditor(){
 async function saveLog(){
   if(!LG.trees.size){ LG.err='Pick at least one tree.'; return renderSheet(); }
   if(!LG.acts.size && !LG.note.trim()){ LG.err='Pick what you did, or write a note.'; return renderSheet(); }
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(LG.date)){ LG.err='Pick the date the work was done.'; return renderSheet(); }
+  if(LG.date > localDay()){ LG.err='That date is in the future. Check the year.'; return renderSheet(); }
   if(LG.saving) return; LG.saving=true;
   const btn=$('[data-lgsave]'); if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
   const acts=[...LG.acts]; if(!acts.length) acts.push('note');
@@ -812,7 +809,7 @@ function readForm(){
   const parts={}; document.querySelectorAll('[data-part]').forEach(i=>{ const n=parseFloat(i.value); if(n>0) parts[i.dataset.part]=n; }); if(FORM.fields.some(f=>f.type==='parts')) v.parts=parts;
   return v;
 }
-const GROUP_BY_COMMON = {'Japanese Black Pine':'pine','Chinese Elm':'elm','Chinese Juniper':'juniper','Japanese Garden Juniper':'juniper','Juniper':'juniper','Clerodendrum':'cler','Port Jackson Fig':'fig','Tiger Bark Fig':'fig','Fig':'fig','Swamp Cypress':'swamp','Buddhist Pine':'podo','Melaleuca':'mela','Bougainvillea':'bougie','Azalea':'azalea'};
+const GROUP_BY_COMMON = {'Japanese Black Pine':'pine','Chinese Elm':'elm','Chinese Juniper':'juniper','Japanese Garden Juniper':'juniper','Juniper':'juniper','Clerodendrum':'cler','Port Jackson Fig':'fig','Tiger Bark Fig':'fig','Fig':'fig','Swamp Cypress':'swamp','Buddhist Pine':'podo','Melaleuca':'mela','Bougainvillea':'bougie','Azalea':'azalea','Jaboticaba':'african','Brazilian Grapetree':'african'};
 function editTree(id){
   const t = id ? byId[id] : {status:'active', photos:[], group:'other', aka:[]};
   openForm({ title: id?'Edit '+t.name:'Add a tree', value:{...t}, kind:'trees',
@@ -884,7 +881,7 @@ function viewTool(){
   <div><span class="eyebrow">${esc(TT[x.type]?.label||'Tool')}</span><h1 style="margin:2px 0 10px">${esc(x.name)}</h1>
   ${st&&st.care?`<div class="note"><b>Care · ${esc(st.label)}:</b> ${esc(st.care)}</div>`:''}
   <dl class="info">${rows.filter(r=>r[1]).map(r=>`<dt>${r[0]}</dt><dd>${esc(r[1]).replace(/\n/g,'<br>')}</dd>`).join('')}</dl>
-  ${x.url?`<p><a href="${esc(x.url)}" target="_blank" rel="noopener" style="color:var(--glaze);font-weight:700">Maker's product page ↗</a></p>`:''}</div></div>
+  ${/^https?:\/\//i.test(x.url||'')?`<p><a href="${esc(x.url)}" target="_blank" rel="noopener" style="color:var(--glaze);font-weight:700">Maker's product page ↗</a></p>`:''}</div></div>
   <div class="section-h" style="margin-top:18px"><h2 style="font-size:calc(20px*var(--fs))">Photos</h2><label class="btn small">${ico('cam')}Add photos<input type="file" accept="image/*" multiple hidden data-toolphoto="${x.id}"></label></div>
   ${ps.length?`<div class="pgrid">${ps.map(i=>`<figure><img src="${photo(i)}" alt="" loading="lazy" data-zoom="${i}"></figure>`).join('')}</div>`:'<div class="empty">No photos yet.</div>'}`;
 }
@@ -1094,9 +1091,10 @@ export function render(){
 function sync(){
   TREES = state.trees.map(t=>({...t, photos:t.photos||[], aka:t.aka||[]}));
   byId = Object.fromEntries(TREES.map(t=>[t.id,t]));
-  LOGS = state.logs.filter(l=>!l.deleted).map(l=>({...l, trees:l.trees||[], actions:l.actions||['note'], sources:l.sources||[], flags:l.flags||[]}));
+  LOGS = state.logs.filter(l=>!l.deleted).map(l=>({...l, text:l.text||'', trees:l.trees||[], actions:l.actions||['note'], sources:l.sources||[], flags:l.flags||[]}));
+  BYTREE = {}; LOGS.forEach(l=>l.trees.forEach(id=>(BYTREE[id] ||= []).push(l)));
   DELETED = state.logs.filter(l=>l.deleted).map(l=>({...l, trees:l.trees||[]}));
-  PH = Object.fromEntries(Object.values(state.photos).map(p=>[p.id,{src:p.thumb||p.url, thumb:!!p.thumb, date:p.date, origin:p.origin, driveId:p.driveId, url:p.url}]));
+  PH = Object.fromEntries(Object.values(state.photos).map(p=>[p.id,{src:p.thumb||p.url, thumb:!!p.thumb, date:p.date, origin:p.origin, driveId:p.driveId, url:p.url, noFull:!!p.noFull}]));
   PDATE = {}; LOGS.forEach(l=>(l.photos||[]).forEach(p=>{ if(!PDATE[p]) PDATE[p]=l.date; }));
   D.pots = state.pots; D.done = state.meta.importNotes?.done || [];
   MIXES = state.mixes.slice().sort((a,b)=>a.name.localeCompare(b.name));
@@ -1159,7 +1157,8 @@ document.addEventListener('change', async e=>{
     e.target.value='';
   }
   if(e.target.dataset.potphoto){
-    const pid=e.target.dataset.potphoto; const ids = await addPhotos([...e.target.files], {}); const p=D.pots.find(x=>x.id===pid); await saveRecord('pots', {...p, photos:[...ids, ...(p.photos||[])]}); toast('Photo added'); driveCatchUp();
+    const pid=e.target.dataset.potphoto;
+    try{ const ids = await addPhotos([...e.target.files], {}); const p=D.pots.find(x=>x.id===pid); await saveRecord('pots', {...p, photos:[...ids, ...(p.photos||[])]}); toast('Photo added'); }catch(err){ toast('Could not add photo: '+err.message); } driveCatchUp();
   }
 });
 async function openLightbox(id){
@@ -1176,8 +1175,8 @@ async function openLightbox(id){
     else if(navigator.onLine){ const sp=note.querySelector('span'); sp.innerHTML=`Small copy · <button class="lb-date" data-lbfull="${p.driveId}">Load full size</button>`; }
     else note.querySelector('span').textContent='Showing the small copy (no signal)';
   } else {
-    note.innerHTML='<span>The full-size copy is still on this device waiting to upload.</span>';
-    const local = await localFull(id); if(local){ lb.querySelector('img').src=local; note.querySelector('span').textContent='Full size (on this device, uploads when online)'; }
+    note.innerHTML=`<span>${p.noFull?'Only the small copy was kept: this device had no room for the full-size photo when it was added.':'The full-size copy is still on this device waiting to upload.'}</span>`;
+    const local = p.noFull ? null : await localFull(id); if(local){ lb.querySelector('img').src=local; note.querySelector('span').textContent='Full size (on this device, uploads when online)'; }
   }
 }
 async function loadFull(lb, p, interactive){
