@@ -104,6 +104,15 @@ try{ S.layout = localStorage.getItem('gt-layout') || 'cards'; }catch(e){}
 function textSize(){ try{ return localStorage.getItem('gt-fs') || '1.12'; }catch(e){ return '1.12'; } }
 export function setTextSize(v){ try{ if(v) localStorage.setItem('gt-fs', v); }catch(e){} document.documentElement.style.setProperty('--fs', v || textSize()); }
 setTextSize();
+/* Room for the Samsung taskbar (unfolded Fold, tablet): when the installed app runs full screen, Android lays the
+   taskbar over the bottom of it and doesn't tell the page. 'auto' = on for the installed app on big Android screens. */
+function dockGap(){ try{ return localStorage.getItem('gt-dock') || 'auto'; }catch(e){ return 'auto'; } }
+function applyDockGap(){
+  const v = dockGap();
+  const big = Math.min(screen.width, screen.height) >= 600, app = matchMedia('(display-mode: standalone)').matches, android = /Android/i.test(navigator.userAgent);
+  document.body?.classList.toggle('dock-gap', v==='on' || (v==='auto' && big && app && android));
+}
+applyDockGap(); addEventListener('DOMContentLoaded', applyDockGap); addEventListener('resize', applyDockGap);
 /* Screens are recorded in the browser's history so the phone's Back gesture goes back a screen (and closes
    an open pop-up first) instead of leaving the app. */
 const NAV_KEYS = ['view','tree','tab','book','toolId'];
@@ -633,7 +642,9 @@ function viewSettings(){
   return header() + `<div class="section-h"><div><span class="eyebrow">Your data, in your accounts</span><h2>Settings &amp; backups</h2></div></div>
   <div class="stack">
     <div class="card" style="padding:16px"><b>Text size</b><p class="muted" style="margin:4px 0 10px;font-size:15px">Set separately on each device.</p>
-      <div class="seg" role="group" aria-label="Text size">${[['1','Standard'],['1.12','Large'],['1.25','Larger']].map(([k,l])=>`<button data-fs="${k}" aria-pressed="${textSize()===k}">${l}</button>`).join('')}</div></div>
+      <div class="seg" role="group" aria-label="Text size">${[['1','Standard'],['1.12','Large'],['1.25','Larger']].map(([k,l])=>`<button data-fs="${k}" aria-pressed="${textSize()===k}">${l}</button>`).join('')}</div>
+      <b style="display:block;margin-top:16px">Room for the phone's taskbar</b><p class="muted" style="margin:4px 0 10px;font-size:15px">Lifts the bottom menu above the Samsung taskbar (unfolded Fold, tablet). Set separately on each device.</p>
+      <div class="seg" role="group" aria-label="Room for the taskbar">${[['auto','Automatic'],['on','On'],['off','Off']].map(([k,l])=>`<button data-dock="${k}" aria-pressed="${dockGap()===k}">${l}</button>`).join('')}</div></div>
     <div class="card" style="padding:16px"><b>Google Drive</b><p class="muted" style="margin:4px 0 10px;font-size:calc(15px*var(--fs))">Full-size photos and weekly backups go into a "GraytTrees" folder in your Drive. The app can only see files it created.</p>
       ${driveConnected()?`<span class="pill ok">Connected</span>`:`<button class="btn small" data-drive>${ico('check')}Connect Google Drive</button>`}
       <p class="muted num" style="font-size:calc(14px*var(--fs));margin:10px 0 0" id="pendingInfo"></p></div>
@@ -1211,7 +1222,7 @@ async function loadFull(lb, p, interactive){
   }
 }
 document.addEventListener('click', async e=>{
-  const c = e.target.closest('[data-rslist],[data-rsmode],[data-rsrun],[data-rsthumbs],[data-clearproblems],[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-restorerec],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-doclink],[data-doctest],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-pgdel2],[data-pgcover],[data-otd],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
+  const c = e.target.closest('[data-rslist],[data-rsmode],[data-rsrun],[data-rsthumbs],[data-clearproblems],[data-fsave],[data-fjob],[data-ftree],[data-delentry],[data-restore],[data-restorerec],[data-edittree],[data-editpot],[data-editmix],[data-editentry],[data-drive],[data-backup],[data-doclink],[data-doctest],[data-signout],[data-runimport],[data-ahead],[data-calsp],[data-cmpa],[data-cmpb],[data-cmppick],[data-cmpswap],[data-cmpreset],[data-jobsed],[data-combo],[data-jhide],[data-jadd],[data-cadd],[data-cdel],[data-layout],[data-fs],[data-dock],[data-tick],[data-close],[data-nav],[data-tree],[data-back],[data-tab],[data-group],[data-log],[data-zoom],[data-hact],[data-more],[data-mix],[data-lgt],[data-lga],[data-lgf],[data-lgall],[data-lgnone],[data-lgsave],[data-book],[data-bkf],[data-bkcheck],[data-editbook],[data-bkkey],[data-delbook],[data-bkscan],[data-bkadd],[data-phdate],[data-phsave],[data-phcover],[data-lbfull],[data-pgdel],[data-pgdel2],[data-pgcover],[data-otd],[data-tool],[data-toolf],[data-edittool],[data-deltool],[data-tooldelph],.lightbox');
   if(!c) return;
   const d = c.dataset;
   if(c.classList.contains('lightbox')){ if(e.target.closest('.lb-edit,.lb-full a')) return; c.remove(); return; }
@@ -1278,6 +1289,7 @@ document.addEventListener('click', async e=>{
   if('cadd' in d){ if(LG.acts.size<2){ toast('Tick two or more jobs first, then save them as a shortcut'); return; } COMBOS.push({id:'cb'+Date.now(), label:[...LG.acts].map(a=>ACT[a].label).join(' + '), jobs:[...LG.acts]}); saveJobs(); keepScroll(renderSheet); return; }
   if('cdel' in d){ COMBOS.splice(+d.cdel,1); saveJobs(); keepScroll(renderSheet); return; }
   if('fs' in d){ setTextSize(d.fs); render(); return; }
+  if('dock' in d){ try{ localStorage.setItem('gt-dock', d.dock); }catch(err){} applyDockGap(); render(); return; }
   if('layout' in d){ S.layout=d.layout; try{localStorage.setItem('gt-layout',S.layout);}catch(err){} render(); return; }
   if('ahead' in d){ S.ahead=+d.ahead; render(); return; }
   if('cmpa' in d || 'cmpb' in d || 'cmppick' in d || 'cmpswap' in d || 'cmpreset' in d){

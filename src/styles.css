@@ -527,3 +527,12 @@ body:has(.drive-need) .toast{bottom:calc(196px + env(safe-area-inset-bottom,0px)
 .pg-row{display:flex;gap:12px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:calc(14px*var(--fs))}
 .pg-row .num{flex:1}
 .pg-row a{color:var(--glaze)}
+/* room for the Samsung taskbar laid over the bottom of the full-screen app (Fold unfolded, tablet) */
+body.dock-gap{--dock:52px}
+body.dock-gap .tabbar{padding-bottom:calc(8px + var(--dock))}
+body.dock-gap .main{padding-bottom:calc(120px + var(--dock))}
+body.dock-gap .toast{bottom:calc(110px + var(--dock))}
+body.dock-gap .drive-need{bottom:calc(124px + var(--dock))}
+body.dock-gap .sheet{padding-bottom:calc(24px + var(--dock))}
+body.dock-gap .rail{padding-bottom:calc(16px + var(--dock))}
+@media (min-width:900px){body.dock-gap .main{padding-bottom:calc(60px + var(--dock))}body.dock-gap .drive-need{bottom:calc(24px + var(--dock))}}
