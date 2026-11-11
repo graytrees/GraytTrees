@@ -1108,7 +1108,10 @@ function sync(){
   S.ticks = {}; LOGS.forEach(l=>{ if(l.flags.includes('tick')) S.ticks[l.id]='tick'; });
 }
 let raf=0;
-export function refresh(){ if(S.importing) return; cancelAnimationFrame(raf); raf=requestAnimationFrame(()=>{ sync(); if(!document.querySelector('#layer .sheet')) render(); else if(S.view!=='tree'||byId[S.tree]) render(); }); }
+// The Import and Restore screens hold a chosen file and typed text; a background redraw would wipe them.
+const HOLD_VIEWS = ['import','restore'];
+const quietRender = () => { if(!HOLD_VIEWS.includes(S.view)) render(); };
+export function refresh(){ if(S.importing) return; if(HOLD_VIEWS.includes(S.view)){ sync(); return; } cancelAnimationFrame(raf); raf=requestAnimationFrame(()=>{ sync(); if(!document.querySelector('#layer .sheet')) render(); else if(S.view!=='tree'||byId[S.tree]) render(); }); }
 
 let qTimer;
 document.addEventListener('input', e=>{
@@ -1286,13 +1289,13 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ stopScan(); $('#
 async function driveCatchUp(){
   if(!navigator.onLine || !driveConnected()) return;
   const photos = await pendingCount(), backup = backupDue() && state.ready.meta;
-  if(!hasDriveToken()){ const need = (photos||backup) ? {photos, backup} : null; if(JSON.stringify(need)!==JSON.stringify(S.driveNeed)){ S.driveNeed=need; render(); } return; }
+  if(!hasDriveToken()){ const need = (photos||backup) ? {photos, backup} : null; if(JSON.stringify(need)!==JSON.stringify(S.driveNeed)){ S.driveNeed=need; quietRender(); } return; }
   S.driveNeed=null;
   const n = await flushPending(); if(n) toast(`${n} photo${n>1?'s':''} uploaded`);
   const b = await maybeWeeklyBackup(); if(b) toast('Weekly backup saved to Drive');
   if(!b) await refreshJobsFileIfWireChanged().catch(err=>logProblem('Wire-check dates', err));
   if(await pendingCount()) S.driveNeed = {photos: await pendingCount(), backup:false};
-  render();
+  quietRender();
 }
 export function startApp(){
   sync(); render();
