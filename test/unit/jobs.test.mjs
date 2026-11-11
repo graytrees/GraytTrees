@@ -45,3 +45,17 @@ test('monthly list: wire checks appear in the month they fall due; wiring is not
   assert.ok(!dec.items.join(' ').includes('Old Maple'));
   assert.equal(dec.due, '2026-12-31');
 });
+
+test('repots: overdue only once a whole window has been missed, never while the window is open', async () => {
+  const { repotMissed, repotFirstDue } = await import('../../src/jobs.js');
+  const pine = { id: 'p', group: 'pine' }, fig = { id: 'f', group: 'fig' };
+  assert.deepEqual(repotFirstDue(pine, '2022-08-07'), [2025, 8]);
+  assert.equal(repotMissed(pine, '2022-08-07', new Date(2026, 10, 11)), true, 'pine due Aug 2025, now Nov 2026');
+  assert.equal(repotMissed(pine, '2022-08-07', new Date(2026, 6, 20)), false, 'window open: due now, not "overdue"');
+  assert.equal(repotMissed(pine, '2024-07-14', new Date(2026, 10, 11)), false, 'not due until Jul 2027');
+  // a fig repotted in August (old habit) falls due in its own window, October: waiting for October is not overdue
+  assert.deepEqual(repotFirstDue(fig, '2025-08-09'), [2027, 10]);
+  assert.equal(repotMissed(fig, '2025-08-09', new Date(2027, 8, 15)), false);
+  assert.equal(repotMissed(fig, '2025-08-09', new Date(2028, 1, 1)), true);
+  assert.equal(repotMissed({ id: 'o', group: 'other' }, '2020-01-01', new Date(2026, 10, 11)), false, 'no window, no verdict');
+});

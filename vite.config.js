@@ -16,7 +16,7 @@ export default defineConfig({
     includeAssets: ['icon-192-v2.png', 'icon-512-v2.png'],
     manifest: {
       name: 'GraytTrees Bonsai', short_name: 'GraytTrees', description: 'Private bonsai collection records',
-      start_url: base, scope: base, display: 'standalone', orientation: 'portrait-primary',
+      start_url: base, scope: base, display: 'standalone',   // no orientation lock: the installed app turns with the device (side menu in landscape on the tablet and unfolded Fold)
       background_color: '#ECEEE9', theme_color: '#2E5B5F',
       icons: [
         { src: 'icon-192-v2.png', sizes: '192x192', type: 'image/png' },

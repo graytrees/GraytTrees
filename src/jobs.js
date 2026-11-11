@@ -27,6 +27,19 @@ export const AZ_AFTER = [10,11];  /* azalea repotted straight after flowering */
 export const repotWin = t => (t.group==='azalea' && t.azTiming==='after') ? AZ_AFTER : ((GUIDE[t.group]||GUIDE.other).rows.repot||[]);
 export const autumnWin = t => (GUIDE[t.group]||GUIDE.other).rows.autumn||[];
 export const evMin = t => t.every ? t.every[0] : (GUIDE[t.group]||GUIDE.other).every;
+/** When a repot first fell due: the first month of the tree's repot window on or after "last repot + its interval".
+ *  Returns [year, month], or null with no window or no repot on record. Not clamped to today, so it can be in the past. */
+export function repotFirstDue(t, lastDate){
+  const win = repotWin(t), d = parseD(lastDate); if(!win.length || !d) return null;
+  for(let i=0;i<24;i++){ const [y,m] = addMonths(d.getFullYear()+evMin(t), d.getMonth()+1, i); if(win.includes(m)) return [y,m]; }
+  return null;
+}
+/** True when a whole repot window has gone by since the repot fell due (and the window isn't open right now). */
+export function repotMissed(t, lastDate, today = new Date()){
+  const f = repotFirstDue(t, lastDate); if(!f) return false;
+  const nowY = today.getFullYear(), nowM = today.getMonth()+1;
+  return (f[0]*12+f[1]) < (nowY*12+nowM) && !repotWin(t).includes(nowM);
+}
 export const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 export const MONTHS_L = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 export function parseD(s){ if(!s) return null; const p=s.split('-').map(Number); return new Date(p[0], (p[1]||1)-1, p[2]||15); }

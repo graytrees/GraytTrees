@@ -10,7 +10,7 @@ import { problems, logProblem, clearProblems, onProblem } from './problems.js';
 import { runImport } from './importer.js';
 import { signOut, auth } from './firebase.js';
 import { TIPS, NOTES, COLLECTION } from './knowledge.js';
-import { GUIDE, CALS, calOf, AZ_AFTER, repotWin, autumnWin, evMin, addMonths, makeJobs, tickTitle, wireStatus } from './jobs.js';
+import { GUIDE, CALS, calOf, AZ_AFTER, repotWin, autumnWin, evMin, addMonths, makeJobs, tickTitle, wireStatus, repotMissed } from './jobs.js';
 
 const D = { pots: [], done: [] };
 const TODAY = new Date();
@@ -88,6 +88,8 @@ function repotStatus(t){
   const inWindow = repotWin(t).includes(NOW_M), inAutumn = autumnWin(t).includes(NOW_M);
   let cls='ok', text='Next repot '+MONTHS[next.getMonth()]+' '+next.getFullYear();
   if(months<=0){ cls = inWindow ? 'due' : 'late'; text = inWindow ? 'Repot due now' : inAutumn ? 'Repot overdue · autumn option open (light root work)' : 'Repot due (next window)'; }
+  // a repot window has gone by since this fell due: say so on the tree instead of just naming the next window
+  else if(repotMissed(t, last.date, TODAY)){ cls='late'; text = inAutumn ? 'Repot overdue · autumn option open (light root work)' : 'Repot overdue · next window '+MONTHS[next.getMonth()]+' '+next.getFullYear(); }
   return {cls, text, due: months<=0 && inWindow, last, next};
 }
 function sourcePills(l){
@@ -183,7 +185,7 @@ function homeTop(){
   const ym = TODAY.getFullYear()+'-'+String(NOW_M).padStart(2,'0');
   const season = SEASONS.find(x=>x[1].includes(NOW_M))[0].toLowerCase();
   // repots: only trees due now, overdue, or due within about six weeks
-  const soon = active.map(t=>({t, r:repotStatus(t)})).filter(({r})=> r.due || r.cls==='late' || (r.next && (r.next - TODAY) < 42*864e5));
+  const soon = active.map(t=>({t, r:repotStatus(t)})).filter(({r})=> r.due || (r.next && (r.next - TODAY) < 42*864e5));
   const repotCard = soon.length ? `<div class="card home-card"><div class="home-h"><b>Repots</b><span>${soon.length} tree${soon.length>1?'s':''}</span></div>${soon.map(({t,r})=>`<button class="due-item" data-tree="${t.id}">${thumb(t,'')}<span class="t"><b>${esc(t.name)}</b><span class="muted" style="font-size:calc(14px*var(--fs))">Last repot ${r.last?fmtD(r.last.date):'—'} · every ${evText(t)}</span></span><span class="pill ${r.cls}">${r.due?'Due now':r.cls==='late'?'Overdue':MONTHS[r.next.getMonth()]}</span></button>`).join('')}</div>` : '';
   // Saturday routine (Fridays and Saturdays only)
   let satCard = '';

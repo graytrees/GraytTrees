@@ -508,3 +508,12 @@ body:has(.drive-need) .toast{bottom:calc(196px + env(safe-area-inset-bottom,0px)
 /* settings: problems noted on this device */
 .problems summary{cursor:pointer;font-weight:700}
 .problems ul{list-style:none;margin:10px 0;padding:0;display:grid;gap:8px;font-size:calc(14px*var(--fs));word-break:break-word}
+
+/* Landscape on a phone or the folded Fold: the side menu must stay reachable on a short screen */
+@media (min-width:900px){.rail{overflow-y:auto;overscroll-behavior:contain}}
+@media (min-width:900px) and (max-height:640px){
+  .rail{padding:8px 6px;gap:0}
+  .rail .seal{display:none}
+  .rail button{padding:5px 4px;gap:1px;font-size:calc(12px*var(--fs))}
+  .rail button .ico{width:22px;height:22px}
+}
