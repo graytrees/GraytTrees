@@ -536,3 +536,9 @@ body.dock-gap .drive-need{bottom:calc(124px + var(--dock))}
 body.dock-gap .sheet{padding-bottom:calc(24px + var(--dock))}
 body.dock-gap .rail{padding-bottom:calc(16px + var(--dock))}
 @media (min-width:900px){body.dock-gap .main{padding-bottom:calc(60px + var(--dock))}body.dock-gap .drive-need{bottom:calc(24px + var(--dock))}}
+/* never let a long name or label make a screen wider than the phone (Chrome then zooms the whole app out) */
+.due-item .t,.due-main .t{flex:1 1 auto;min-width:0}
+.due-item .t b,.due-item .t .muted{overflow-wrap:anywhere}
+.due-main{min-width:0}
+.home-grid > div,.home-card{min-width:0}
+.main{overflow-x:clip}
