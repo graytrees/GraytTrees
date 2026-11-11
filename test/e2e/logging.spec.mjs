@@ -56,7 +56,7 @@ test('edit an entry (earlier version kept), delete it, restore it from the Recyc
 test('seasonal card is a reminder list with nothing to tick, and wiring is not on it', async ({ page }) => {
   await start(page);
   const card = page.locator('.home-card.jobs');
-  await expect(card).toContainText('Could do this month');
+  await expect(card).toContainText('This month');
   await expect(card.locator('input[type=checkbox], [data-tick]')).toHaveCount(0);
   await expect(card).not.toContainText(/\bWire\b/);
 });
