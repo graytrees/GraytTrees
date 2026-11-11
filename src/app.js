@@ -131,7 +131,11 @@ function proto(){
   if(!state.ready.trees) return `<div class="proto">${ico('history')}<div>Loading your records…</div></div>`;
   if(!TREES.length) return `<div class="card" style="padding:18px;margin-bottom:14px"><h2 style="font-size:calc(22px*var(--fs))">Welcome to GraytTrees</h2><p class="muted">Your collection is empty. Load your merged records (from Bonsai Album, the Care App and the 2003–2010 sheet) to get started.</p><button class="btn" data-nav="import">${ico('archive')}Import my records</button></div>`;
   const off = !navigator.onLine;
-  if(off || state.pending) return `<div class="proto">${ico('history')}<div><b>${off?'No signal.':'Syncing…'}</b> ${off?'Everything you log is saved on this device and will sync when you\'re back in range.':'Your latest changes are being saved to the cloud.'}</div></div>`;
+  // only show "Syncing…" if saving takes more than a moment, so quick background saves don't flash a banner
+  if(!state.pending) S.pendSince = 0;
+  else if(!S.pendSince){ S.pendSince = Date.now(); setTimeout(()=>{ if(state.pending) quietRender(); }, 3100); }
+  const syncing = state.pending && Date.now() - S.pendSince > 3000;
+  if(off || syncing) return `<div class="proto">${ico('history')}<div><b>${off?'No signal.':'Syncing…'}</b> ${off?'Everything you log is saved on this device and will sync when you\'re back in range.':'Your latest changes are being saved to the cloud.'}</div></div>`;
   return '';
 }
 
