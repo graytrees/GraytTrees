@@ -4,6 +4,7 @@ import { start, runImport, fillLog, home, db, rec, errors, PHOTO, more, tabbar, 
 const backups = page => page.evaluate(() => window.__backups || {});
 async function backupNow(page) {
   await more(page, 'settings');
+  await page.evaluate(() => document.querySelectorAll('.toast').forEach(t => t.remove()));   // so an earlier backup's message can't be mistaken for this one
   await page.locator('[data-backup]').first().click();
   await expect(page.locator('.toast', { hasText: 'Backup saved' }).first()).toBeVisible({ timeout: 15000 });
 }
